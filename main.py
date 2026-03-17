@@ -167,8 +167,3 @@ async def count(data  = Body()):
     except Exception as err:
         print(f"Unexpected {err=}, {type(err)=}")
         raise HTTPException(status_code=500)
-
-
-from mangum import Mangum
-
-handler = Mangum(app)
