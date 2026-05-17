@@ -1,3 +1,10 @@
+import os
+import matplotlib
+
+# ----- НАСТРОЙКА MATPLOTLIB ДЛЯ СТАБИЛЬНОЙ РАБОТЫ НА RENDER -----
+matplotlib.use('Agg')
+os.environ['MPLCONFIGDIR'] = '/tmp/matplotlib_cache'
+
 import streamlit as st
 import numpy as np
 import pandas as pd
@@ -10,6 +17,41 @@ st.set_page_config(
     page_icon="📊",
     layout="wide"
 )
+
+# ---------------------- ФУНКЦИЯ ПРИМЕНЕНИЯ СТИЛЯ В ЗАВИСИМОСТИ ОТ ТЕМЫ STREAMLIT ----------------------
+def apply_theme_style():
+    """Применяет стиль matplotlib в зависимости от текущей темы Streamlit."""
+    try:
+        theme = st.get_option("theme.base")
+    except:
+        theme = "light"
+    
+    if theme == "dark":
+        plt.style.use('dark_background')
+        plt.rcParams.update({
+            'text.color': 'white',
+            'axes.labelcolor': 'white',
+            'xtick.color': 'white',
+            'ytick.color': 'white',
+            'axes.edgecolor': 'white',
+            'grid.color': 'gray',
+            'grid.alpha': 0.3,
+            'figure.facecolor': '#0e1117',
+            'axes.facecolor': '#0e1117'
+        })
+    else:
+        plt.style.use('default')
+        plt.rcParams.update({
+            'text.color': 'black',
+            'axes.labelcolor': 'black',
+            'xtick.color': 'black',
+            'ytick.color': 'black',
+            'axes.edgecolor': 'black',
+            'grid.color': 'gray',
+            'grid.alpha': 0.3,
+            'figure.facecolor': 'white',
+            'axes.facecolor': 'white'
+        })
 
 # ---------------------- ОПИСАНИЕ МОДЕЛИ ----------------------
 with st.expander("📖 Описание модели", expanded=True):
@@ -24,12 +66,8 @@ with st.expander("📖 Описание модели", expanded=True):
 
     **Как это работает**  
     - Оценка каждого пользователя генерируется из **нормального распределения** с заданными параметрами (`среднее значение`, `стандартное отклонение`).
-    - Опрос проводится **по тактам** – каждый такт моделирует новый опрос (например, после изменения системы, новый вопрос или просто следующий период сбора мнений). Такты независимы друг от друга.
-    - Пользователи разделены на **возрастные группы** (молодые, средние, пожилые). Для каждой группы можно настроить свои параметры распределения.
-    - Результаты отображаются в виде таблицы, графиков средней оценки по тактам и по возрастным группам.
-
-    **Почему нормальное распределение?**  
-    Оно хорошо описывает мнения в социологических опросах: большинство оценок группируется вокруг среднего значения, крайние оценки встречаются реже.
+    - Опрос проводится **по тактам** – каждый такт моделирует новый опрос.
+    - Пользователи разделены на **возрастные группы** (молодые, средние, пожилые). Для каждой группы можно настроить свои параметры.
     """)
 
 # ---------------------- ЛИНГВИСТИЧЕСКАЯ ШКАЛА ----------------------
@@ -50,7 +88,7 @@ def generate_ratings(n_users, mean, std, seed=None):
     freq = Counter(ratings)
     return ratings, freq
 
-# ---------------------- БОКОВАЯ ПАНЕЛЬ (ПАРАМЕТРЫ) ----------------------
+# ---------------------- БОКОВАЯ ПАНЕЛЬ ----------------------
 st.sidebar.header("⚙️ Параметры моделирования")
 
 num_ticks = st.sidebar.slider("Количество тактов", min_value=1, max_value=10, value=3, step=1)
@@ -68,11 +106,10 @@ groups = {
     "Пожилые (51+)": {"mean": 3.8, "std": 0.9, "size": 20}
 }
 
-# Цвета для групп
 group_colors = {
-    "Молодые (18-30)": "orange",
-    "Средние (31-50)": "green",
-    "Пожилые (51+)": "blue"
+    "Молодые (18-30)": "#FFA500",
+    "Средние (31-50)": "#2E8B57",
+    "Пожилые (51+)": "#1E90FF"
 }
 
 for name in groups:
@@ -90,12 +127,11 @@ for name in groups:
             value=groups[name]["size"], step=1, key=f"size_{name}"
         )
 
-# ---------------------- КНОПКА ЗАПУСКА ----------------------
+# ---------------------- ЗАПУСК МОДЕЛИРОВАНИЯ ----------------------
 if st.sidebar.button("🚀 Запустить моделирование", type="primary"):
-    # Сохраняем результаты в session_state для дальнейшего использования
     all_results = []
     avg_by_group = {name: [] for name in groups}
-    tick_data = {}  # {tick: {group: (ratings_list, freq)}}
+    tick_data = {}
 
     for tick in range(1, num_ticks + 1):
         current_seed = seed_val + tick if use_seed else None
@@ -125,7 +161,7 @@ if st.sidebar.button("🚀 Запустить моделирование", type=
     st.session_state['groups'] = list(groups.keys())
     st.session_state['run'] = True
 
-# ---------------------- ОТОБРАЖЕНИЕ РЕЗУЛЬТАТОВ (если есть) ----------------------
+# ---------------------- ОТОБРАЖЕНИЕ РЕЗУЛЬТАТОВ ----------------------
 if st.session_state.get('run', False):
     all_results = st.session_state['results']
     avg_by_group = st.session_state['avg_by_group']
@@ -135,32 +171,34 @@ if st.session_state.get('run', False):
 
     st.header("📋 Результаты моделирования")
 
-    # 1. ТАБЛИЦА
+    # 1. Таблица
     st.subheader("📊 Таблица результатов по тактам и группам")
     df = pd.DataFrame(all_results)
     st.dataframe(df, use_container_width=True, hide_index=True)
 
-    # 2. ГРАФИК ДИНАМИКИ ПО ВОЗРАСТНЫМ ГРУППАМ
+    # 2. Динамика средней оценки по группам
     st.subheader("📈 Динамика средней оценки по тактам")
+    apply_theme_style()  # <-- применяем стиль перед графиком
     fig1, ax1 = plt.subplots(figsize=(8, 5))
     for group_name, avgs in avg_by_group.items():
         color = group_colors.get(group_name, "gray")
-        ax1.plot(range(1, num_ticks + 1), avgs, marker='o', label=group_name, color=color)
+        ax1.plot(range(1, num_ticks + 1), avgs, marker='o', label=group_name, color=color, linewidth=2)
     ax1.set_xlabel("Такт")
     ax1.set_ylabel("Средняя оценка (баллы)")
     ax1.set_title("Изменение средней оценки по тактам")
-    ax1.grid(True, linestyle='--', alpha=0.6)
+    ax1.grid(True, linestyle='--', alpha=0.5)
     ax1.legend()
     st.pyplot(fig1)
 
-    # 3. ДЕТАЛЬНАЯ ДИНАМИКА ПО КАЖДОЙ ГРУППЕ (с цветами)
+    # 3. Детальная динамика по каждой группе
     st.subheader("📉 Детальная динамика по каждой группе")
     cols = st.columns(len(group_names))
     for idx, group_name in enumerate(group_names):
         avgs = avg_by_group[group_name]
         color = group_colors.get(group_name, "gray")
+        apply_theme_style()  # <-- перед каждым маленьким графиком
         fig2, ax2 = plt.subplots(figsize=(4, 3))
-        ax2.plot(range(1, num_ticks + 1), avgs, marker='s', color=color)
+        ax2.plot(range(1, num_ticks + 1), avgs, marker='s', color=color, linewidth=2)
         ax2.set_xlabel("Такт")
         ax2.set_ylabel("Средний балл")
         ax2.set_title(group_name)
@@ -168,7 +206,7 @@ if st.session_state.get('run', False):
         with cols[idx]:
             st.pyplot(fig2)
 
-    # 4. ОБЩИЙ СТОЛБЧАТЫЙ ГРАФИК: распределение оценок по всем тактам и группам
+    # 4. Общее распределение оценок (все такты, все группы)
     st.subheader("📊 Общее распределение оценок (все такты, все группы)")
     all_ratings = []
     for tick in tick_data:
@@ -179,22 +217,28 @@ if st.session_state.get('run', False):
     categories = [LINGUISTIC_SCALE[i] for i in range(1, 6)]
     counts = [overall_counter.get(i, 0) for i in range(1, 6)]
 
+    apply_theme_style()
     fig3, ax3 = plt.subplots(figsize=(6, 4))
-    bars = ax3.bar(categories, counts, color='steelblue')
+    try:
+        theme = st.get_option("theme.base")
+    except:
+        theme = "light"
+    bar_color = "#3498db" if theme == "light" else "#5dade2"
+    bars = ax3.bar(categories, counts, color=bar_color)
     ax3.set_xlabel("Оценка")
     ax3.set_ylabel("Количество голосов")
     ax3.set_title("Общее распределение оценок")
+    ax3.set_ylim(0, max(counts) * 1.1 if max(counts) > 0 else 1)
     for bar, count in zip(bars, counts):
         ax3.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.5, str(count), ha='center', va='bottom')
     st.pyplot(fig3)
 
-    # 5. ВЫБОР КОНКРЕТНОГО ТАКТА ДЛЯ ДЕТАЛЬНОГО ПРОСМОТРА
+    # 5. Детализация по выбранному такту
     st.subheader("🔍 Детализация по выбранному такту")
     selected_tick = st.selectbox("Выберите такт для анализа", options=list(range(1, num_ticks + 1)))
     if selected_tick:
         st.write(f"### Такт {selected_tick}")
 
-        # Собираем все оценки в выбранном такте (по всем группам)
         tick_ratings = []
         group_details = []
         for group_name in group_names:
@@ -207,24 +251,24 @@ if st.session_state.get('run', False):
             })
         tick_counter = Counter(tick_ratings)
 
-        # Столбчатая диаграмма для выбранного такта
-        categories = [LINGUISTIC_SCALE[i] for i in range(1, 6)]
+        categories_tick = [LINGUISTIC_SCALE[i] for i in range(1, 6)]
         counts_tick = [tick_counter.get(i, 0) for i in range(1, 6)]
 
+        apply_theme_style()
         fig4, ax4 = plt.subplots(figsize=(6, 4))
-        bars = ax4.bar(categories, counts_tick, color='lightcoral')
+        bar_color_tick = "#e67e22" if theme == "light" else "#f39c12"
+        bars = ax4.bar(categories_tick, counts_tick, color=bar_color_tick)
         ax4.set_xlabel("Оценка")
         ax4.set_ylabel("Количество голосов")
         ax4.set_title(f"Распределение оценок в такте {selected_tick}")
+        ax4.set_ylim(0, max(counts_tick) * 1.1 if max(counts_tick) > 0 else 1)
         for bar, count in zip(bars, counts_tick):
             ax4.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.5, str(count), ha='center', va='bottom')
         st.pyplot(fig4)
 
-        # Таблица с разбивкой по группам
         st.write("#### Детализация по возрастным группам")
         group_df = pd.DataFrame(group_details)
         st.dataframe(group_df, use_container_width=True, hide_index=True)
 
-# Если моделирование ещё не запущено
 else:
     st.info("👈 Настройте параметры в боковой панели и нажмите «Запустить моделирование».")
