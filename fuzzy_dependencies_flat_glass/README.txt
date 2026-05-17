@@ -1,0 +1,1 @@
+streamlit run fuzzy_dependencies.py
