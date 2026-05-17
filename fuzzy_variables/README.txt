@@ -1,1 +1,1 @@
-streamlit run app.py - нажмите Enter
+streamlit run app.py
