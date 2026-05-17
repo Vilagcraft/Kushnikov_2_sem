@@ -3,4 +3,4 @@
 * https://kushnikov-calculator-4.onrender.com
 * https://kushnikov-2sem-graph.onrender.com
 * https://fuzzy-variables.onrender.com
-* Листовое стекло
+* https://fuzzy-dependencies-flat-glass.onrender.com
