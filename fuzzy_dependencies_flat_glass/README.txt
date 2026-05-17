@@ -1,1 +1,1 @@
-streamlit run fuzzy_dependencies.py
+streamlit run app.py
