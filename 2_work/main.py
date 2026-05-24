@@ -46,7 +46,7 @@ def fit_cubic_solution(sol, var_index=0):
 
 @app.get("/")
 async def main():
-    return FileResponse(home / "web" / "glass.html")
+    return FileResponse(home / "web" / "index.html")
 
 
 # =========================================================
