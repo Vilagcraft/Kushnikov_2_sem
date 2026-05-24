@@ -1,0 +1,1121 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>Экологическая СППР</title>
+    <script src="https://cdn.plot.ly/plotly-2.30.0.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        /* Основной фон — кремовый, как вы хотели */
+        body {
+            background: #f0e6dd 100%;
+            font-family: 'Segoe UI', 'Arial', sans-serif;
+            color: #2c3e2f;
+            line-height: 1.4;
+            padding: 20px 24px;
+            min-height: 100vh;
+        }
+
+        header, main {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        /* Шапка — с акцентами из index.html */
+        header {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 14px;
+            justify-content: flex-end;
+            align-items: center;
+            background: rgba(255, 255, 255, 0.577);
+            border-radius: 20px;
+            padding: 14px 28px;
+            border: 1px solid rgba(0, 0, 0, 0.06);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
+            margin-bottom: 24px;
+        }
+
+        header p {
+            flex: auto;
+            font-size: 1.7rem;
+            font-weight: 600;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            margin: 0;
+        }
+
+        header button {
+            background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+            border: 1px solid #cbd5e1;
+            padding: 8px 20px;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 0.85rem;
+            font-family: inherit;
+            color: #1e293b;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        header button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            background: linear-gradient(135deg, #e2e8f0 0%, #cbd5e1 100%);
+        }
+
+        #genBtn {
+            background: linear-gradient(135deg, #4facfe 0%, #28b0ff 100%);
+            color: rgb(255, 255, 255);
+        }
+
+        #saveBtn {
+            background: linear-gradient(135deg, #43e97b 0%, #54ffbd 100%);
+            color: rgb(255, 255, 255);
+        }
+
+        #loadBtn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: rgb(255, 255, 255);
+        }
+
+        #solveBtn {
+            background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+            color: white;
+        }
+
+        /* Основной блок */
+        main {
+            background: rgba(255, 255, 255, 0.577);
+            border-radius: 20px;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.02);
+            border: 1px solid #ede8df;
+            overflow: hidden;
+            margin-top: 20px;
+        }
+
+        /* Вкладки — с цветами из index.html */
+        .tabs {
+            display: flex;
+            gap: 8px;
+            background: rgba(255, 255, 255, 0.577);
+            padding: 12px 12px;
+            border-bottom: 1px solid rgba(102, 126, 234, 0.15);
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .tab-btn {
+            background: transparent;
+            border: none;
+            font-size: 0.95rem;
+            font-weight: 500;
+            padding: 8px 20px;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            color: #4a5568;
+            font-family: inherit;
+        }
+
+        .tab-btn.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
+        }
+
+        .tab-btn:not(.active):hover {
+            background: rgba(102, 126, 234, 0.1);
+            color: #667eea;
+            transform: translateY(-1px);
+        }
+
+        .clear-results-btn {
+            background: transparent;
+            border: none;
+            font-size: 1.3rem;
+            line-height: 1;
+            margin-left: auto;
+            cursor: pointer;
+            padding: 0 10px;
+            color: #64748b;
+            transition: all 0.3s ease;
+        }
+        .clear-results-btn:hover {
+            color: #fa709a;
+            transform: rotate(90deg);
+        }
+
+        #formTabContent, #resultTabContent {
+            padding: 12px;
+        }
+
+        .tab {
+            display: none;
+            animation: fade 0.3s ease;
+        }
+        .tab.active {
+            display: block;
+        }
+
+        @keyframes fade {
+            from { opacity: 0; transform: translateY(10px);}
+            to { opacity: 1; transform: translateY(0);}
+        }
+
+        /* Трехколоночная сетка */
+        .three-column-layout {
+            display: flex;
+            gap: 12px;
+            align-items: stretch;
+            flex-wrap: wrap;
+        }
+        .column {
+            flex: 8;
+            min-width: 260px;
+            background: transparent;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+        .three-column-layout .column:nth-child(2) {
+            flex: 10;
+        }
+
+        .column-header {
+            font-weight: 600;
+            font-size: 1rem;
+            background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
+            color: #2d3436;
+            padding: 10px 16px;
+            border-radius: 12px;
+            margin-bottom: 4px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        /* Блоки (карточки) — мягкие, но с цветными акцентами */
+        .block {
+            background: #ffffff;
+            border-left: 4px solid #667eea;
+            border-radius: 16px;
+            padding: 10px 10px;
+            margin-bottom: 4px;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.02);
+            border-right: 1px solid #ece3d8;
+            border-top: 1px solid #ece3d8;
+            border-bottom: 1px solid #ece3d8;
+        }
+
+        .block:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 14px rgba(102, 126, 234, 0.08);
+            border-left-color: #43e97b;
+        }
+
+        .block b {
+            font-weight: 600;
+            background: #ffe2e2;
+            padding: 2px 12px;
+            font-size: 0.85rem;
+        }
+
+        .block input {
+            padding: 8px 4px;
+            border-radius: 10px;
+            border: 2px solid #e0e6ff;
+            font-family: monospace;
+            font-size: 0.9rem;
+            background: rgba(255, 255, 255, 0.9);
+            transition: all 0.3s ease;
+            width: 60px;
+        }
+        .block input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+            background: white;
+        }
+
+        /* Результаты: график + панель параметров */
+        .result-layout {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 24px;
+            margin-bottom: 40px;
+        }
+        .chart-wrapper {
+            flex: 3;
+            min-width: 300px;
+            background: #fffdfa;
+            border-radius: 20px;
+            border: 1px solid rgba(102, 126, 234, 0.15);
+            padding: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.02);
+        }
+        .params-sidebar {
+            flex: 1.2;
+            min-width: 260px;
+            background: #fffcf7;
+            border-radius: 20px;
+            border: 1px solid rgba(102, 126, 234, 0.1);
+            padding: 20px 16px;
+            align-self: flex-start;
+            max-height: 600px;
+            overflow-y: auto;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
+        }
+        .params-sidebar::-webkit-scrollbar {
+            width: 8px;
+        }
+        .params-sidebar::-webkit-scrollbar-track {
+            background: rgba(102, 126, 234, 0.05);
+            border-radius: 4px;
+        }
+        .params-sidebar::-webkit-scrollbar-thumb {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 4px;
+        }
+        .params-sidebar .param-item {
+            margin-bottom: 4px;
+            border-bottom: 1px solid rgba(102, 126, 234, 0.1);
+            padding-bottom: 12px;
+        }
+        .params-sidebar .param-item:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+        .param-header {
+            font-weight: 600;
+            font-size: 0.85rem;
+            color: #2d3436;
+            border-left: 3px solid #667eea;
+            padding-left: 10px;
+            margin-bottom: 8px;
+        }
+        .param-values {
+            display: flex;
+            gap: 16px;
+            font-size: 0.8rem;
+            flex-wrap: wrap;
+        }
+        .value-label {
+            font-weight: 400;
+            color: #64748b;
+            margin-right: 6px;
+        }
+        .value-number {
+            font-weight: 600;
+            font-family: monospace;
+            background: #f1f5f9;
+            padding: 2px 8px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+        }
+        .current-normal { background: #dcfce7; color: #15803d; }
+        .current-over { background: #fee2e2; color: #b91c1c; }
+        .limit-normal { background: #f1f5f9; color: #334155; }
+        .limit-over { background: #fee2e2; color: #b91c1c; }
+
+        .chart-container {
+            width: 100%;
+            min-height: 500px;
+            background: #ffffff;
+            border-radius: 20px;
+        }
+        .full-width-chart {
+            width: 100%;
+        }
+
+        /* Радиальные диаграммы */
+        .radial-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(min(100%, 540px), 1fr));
+            gap: 24px;
+            margin-top: 24px;
+        }
+        .radial-item {
+            background: #fffefb;
+            border-radius: 20px;
+            border: 1px solid rgba(102, 126, 234, 0.1);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            width: 100%;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.02);
+        }
+        .radial-item:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 30px rgba(102, 126, 234, 0.08);
+        }
+        .radial-chart {
+            width: 100%;
+            min-height: 400px;
+            background: #ffffff;
+            border-radius: 16px;
+        }
+        .radial-description {
+            background: #f8f9ff;
+            border-radius: 16px;
+            padding: 14px 18px;
+            border: 1px solid rgba(102, 126, 234, 0.1);
+        }
+        .radial-description h4 {
+            font-weight: 600;
+            margin-bottom: 18px;
+            font-size: 1rem;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            border-bottom: 1px solid rgba(102, 126, 234, 0.2);
+            padding-bottom: 8px;
+        }
+        /* Нотификации — с цветами из index.html */
+        .notification-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(5px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1100;
+        }
+        .notification {
+            max-width: 380px;
+            width: 90%;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+            animation: slideUp 0.3s ease;
+        }
+        @keyframes slideUp {
+            from { transform: translateY(30px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        .notification-header {
+            padding: 18px 22px 8px 22px;
+            font-weight: 600;
+            font-size: 1.2rem;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .notification-body {
+            padding: 20px 22px;
+            color: #2d3436;
+            font-size: 0.95rem;
+            line-height: 1.5;
+        }
+        .notification-footer {
+            padding: 12px 22px 22px 22px;
+            display: flex;
+            justify-content: flex-end;
+        }
+        .notification-btn {
+            background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+            border: none;
+            padding: 8px 24px;
+            border-radius: 12px;
+            font-weight: 600;
+            font-family: inherit;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .notification-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+        .notification-btn.success {
+            background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+            color: white;
+        }
+        .notification-btn.error {
+            background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+            color: white;
+        }
+
+        @media (max-width: 860px) {
+            body { padding: 16px; }
+            .three-column-layout { flex-direction: column; gap: 20px; }
+            .column { width: 100%; }
+            .block input { width: 70px; }
+            .tabs { padding: 8px 16px 0; }
+            #formTabContent, #resultTabContent { padding: 8px; }
+            .result-layout { flex-direction: column; }
+            .params-sidebar { max-height: none; }
+            .radial-item { flex-direction: column; }
+            .radial-chart { min-height: 360px; }
+        }
+        input[type="number"] { -moz-appearance: textfield; }
+    </style>
+</head>
+<body>
+
+<header>
+    <p>Экологическая СППР</p>
+    <button id="saveBtn" type="button">Сохранить значения</button>
+    <button id="loadBtn" type="button">Загрузить значения</button>
+    <input type="file" id="fileLoader" style="display:none" accept=".json" />
+    <button id="genBtn" type="button">Сгенерировать значения</button>
+    <button id="solveBtn" type="button">Выполнить расчеты</button>
+</header>
+
+<main>
+    <div id="mainForm">
+        <div class="tabs" id="formTabs"></div>
+        <div id="formTabContent"></div>
+    </div>
+</main>
+
+<script>
+    // ---------- ИСХОДНЫЕ ДАННЫЕ ----------
+    const paramDescriptions = [
+        "Потери от заболеваемости населения",
+        "Потери сельского хозяйства",
+        "Потери природной среды",
+        "Потери качества жизни",
+        "Потери предприятия"
+    ];
+
+    const polyMap = {
+        1:1,
+        2:2,
+        3:3,
+        4:4,
+        5:5
+    };
+    const K = 5;
+
+    function loadFuzzyCoefficients() {
+        const raw = localStorage.getItem(
+            "fuzzy_coefficients"
+        );
+
+        if (!raw) return;
+
+        const data = JSON.parse(raw);
+
+        if (!data.regression) return;
+
+        const r = data.regression;
+
+        Object.keys(polyMap).forEach((f) => {
+
+            document.querySelector(
+                `[name=f${f}_a]`
+            ).value = r.a;
+
+            document.querySelector(
+                `[name=f${f}_b]`
+            ).value = r.b;
+
+            document.querySelector(
+                `[name=f${f}_c]`
+            ).value = r.c;
+
+            document.querySelector(
+                `[name=f${f}_d]`
+            ).value = r.d;
+        });
+
+        showNotification(
+            "Коэффициенты из нечеткой модели загружены",
+            true
+        );
+    }
+
+    let currentSolutionData = null;
+    let mainPlotDiv = null;
+    let radialChartElements = [];
+
+    function showNotification(message, isSuccess) {
+        const existing = document.querySelector('.notification-overlay');
+        if (existing) existing.remove();
+        const overlay = document.createElement('div');
+        overlay.className = 'notification-overlay';
+        const notification = document.createElement('div');
+        notification.className = 'notification';
+        const header = document.createElement('div');
+        header.className = 'notification-header';
+        header.textContent = isSuccess ? 'Успешно' : 'Ошибка';
+        const body = document.createElement('div');
+        body.className = 'notification-body';
+        body.textContent = message;
+        const footerDiv = document.createElement('div');
+        footerDiv.className = 'notification-footer';
+        const btn = document.createElement('button');
+        btn.className = `notification-btn ${isSuccess ? 'success' : 'error'}`;
+        btn.textContent = 'OK';
+        btn.onclick = () => overlay.remove();
+        footerDiv.appendChild(btn);
+        notification.appendChild(header);
+        notification.appendChild(body);
+        notification.appendChild(footerDiv);
+        overlay.appendChild(notification);
+        document.body.appendChild(overlay);
+        overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+    }
+
+    // ---- Единая вкладка с параметрами ----
+    function createUnifiedTab() {
+        const formTabsDiv = document.getElementById("formTabs");
+        const formTabContentDiv = document.getElementById("formTabContent");
+        formTabsDiv.innerHTML = "";
+        formTabContentDiv.innerHTML = "";
+
+        const unifiedBtn = document.createElement("button");
+        unifiedBtn.type = "button";
+        unifiedBtn.className = "tab-btn active";
+        unifiedBtn.textContent = "Параметры системы";
+        unifiedBtn.onclick = () => {
+            formTabsDiv.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+            formTabContentDiv.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+            unifiedBtn.classList.add("active");
+            document.getElementById("unifiedTab").classList.add("active");
+        };
+        formTabsDiv.appendChild(unifiedBtn);
+
+        const unifiedTabDiv = document.createElement("div");
+        unifiedTabDiv.id = "unifiedTab";
+        unifiedTabDiv.className = "tab active";
+        formTabContentDiv.appendChild(unifiedTabDiv);
+
+        const threeColLayout = document.createElement("div");
+        threeColLayout.className = "three-column-layout";
+        unifiedTabDiv.appendChild(threeColLayout);
+
+        const col1 = document.createElement("div"); col1.className = "column";
+        const col1Header = document.createElement("div"); col1Header.className = "column-header";
+        col1Header.textContent = "Базовые параметры X₁ ... X₈";
+        col1.appendChild(col1Header);
+        threeColLayout.appendChild(col1);
+
+        const col2 = document.createElement("div"); col2.className = "column f-column";
+        const col2Header = document.createElement("div"); col2Header.className = "column-header";
+        col2Header.textContent = "Полиномиальные зависимости (f₁ ... f₈)";
+        col2.appendChild(col2Header);
+        threeColLayout.appendChild(col2);
+
+        const col3 = document.createElement("div"); col3.className = "column z-column";
+        const col3Header = document.createElement("div"); col3Header.className = "column-header";
+        col3Header.textContent = "Внешние возмущения F₁(t) ... F₅(t)";
+        col3.appendChild(col3Header);
+        threeColLayout.appendChild(col3);
+
+        paramDescriptions.forEach((desc, i) => {
+            const block = document.createElement("div");
+            block.className = "block";
+            block.innerHTML = `<b>X<sub>${i+1}</sub>(t)</b> — ${desc}<br>
+            Начальное значение:
+            <input type="number" step="0.01" name="y0_${i}" class="init" value="0.5" min="0" max="1"><br>
+            Нормировочный множитель:
+            <input type="number" step="0.01" name="norm_${i}" class="norm" value="1"><br>
+            Граница нормы:
+            <input type="number" step="0.01" name="limit_${i}" class="limit" value="1">
+            `;
+            col1.appendChild(block);
+        });
+
+        Object.entries(polyMap).forEach(([f, x]) => {
+            const block = document.createElement("div");
+            block.className = "block";
+            block.innerHTML = `f<sub>${f}</sub>(X<sub>${x}</sub>) =
+            <input type="number" step="0.01" value="0" name="f${f}_a" class="af">·X<sub>${x}</sub><sup>3</sup> +
+            <input type="number" step="0.01" value="0" name="f${f}_b" class="bf">·X<sub>${x}</sub><sup>2</sup> +
+            <input type="number" step="0.01" value="0.5" name="f${f}_c" class="cf">·X<sub>${x}</sub> +
+            <input type="number" step="0.01" value="0.2" name="f${f}_d" class="df">`;
+            col2.appendChild(block);
+        });
+
+        for (let i = 1; i <= K; i++) {
+            const block = document.createElement("div");
+            block.className = "block";
+            block.innerHTML = `F<sub>${i}</sub>(t) =
+            <input type="number" step="0.01" value="0" name="z${i}_a" class="az">·t<sup>3</sup> +
+            <input type="number" step="0.01" value="0" name="z${i}_b" class="bz">·t<sup>2</sup> +
+            <input type="number" step="0.01" value="-0.5" name="z${i}_c" class="cz">·t +
+            <input type="number" step="0.01" value="0.2" name="z${i}_d" class="dz">`;
+            col3.appendChild(block);
+        }
+    }
+
+    function collectData() {
+        const params = {};
+        paramDescriptions.forEach((_, i) => {
+            params[i+1] = {
+                y0: +document.querySelector(`[name=y0_${i}]`).value || 0,
+                limit: +document.querySelector(`[name=limit_${i}]`).value || 0,
+                norm: +document.querySelector(`[name=norm_${i}]`).value || 0
+            };
+        });
+        const poly = {};
+        Object.keys(polyMap).forEach(f => {
+            poly[f] = {
+                a: +document.querySelector(`[name=f${f}_a]`).value || 0,
+                b: +document.querySelector(`[name=f${f}_b]`).value || 0,
+                c: +document.querySelector(`[name=f${f}_c]`).value || 0,
+                d: +document.querySelector(`[name=f${f}_d]`).value || 0
+            };
+        });
+        const dists = {};
+        for (let i=1; i<=K; i++) {
+            dists[i] = {
+                a: +document.querySelector(`[name=z${i}_a]`).value || 0,
+                b: +document.querySelector(`[name=z${i}_b]`).value || 0,
+                c: +document.querySelector(`[name=z${i}_c]`).value || 0,
+                d: +document.querySelector(`[name=z${i}_d]`).value || 0
+            };
+        }
+        return { params, poly, dists };
+    }
+
+    document.getElementById("saveBtn").onclick = () => {
+        const blob = new Blob([JSON.stringify(collectData(), null, 2)], {type: "application/json"});
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = "ИСППР_Стекло.json";
+        a.click();
+        URL.revokeObjectURL(a.href);
+    };
+
+    const fileLoader = document.getElementById("fileLoader");
+    document.getElementById("loadBtn").onclick = () => { fileLoader.value = ''; fileLoader.click(); };
+    fileLoader.onchange = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+            try {
+                const d = JSON.parse(ev.target.result);
+                if (d.params) Object.entries(d.params).forEach(([id,p]) => {
+                    const i = id-1;
+                    document.querySelector(`[name=y0_${i}]`).value = p.y0;
+                    document.querySelector(`[name=norm_${i}]`).value = p.norm;
+                    document.querySelector(`[name=limit_${i}]`).value = p.limit;
+                });
+                if (d.poly) Object.entries(d.poly).forEach(([f,p]) => {
+                    ["a","b","c","d"].forEach(k => { document.querySelector(`[name=f${f}_${k}]`).value = p[k]; });
+                });
+                if (d.dists) Object.entries(d.dists).forEach(([f,p]) => {
+                    ["a","b","c","d"].forEach(k => { document.querySelector(`[name=z${f}_${k}]`).value = p[k]; });
+                });
+                showNotification("Данные успешно загружены", true);
+            } catch { showNotification("Ошибка при загрузке файла", false); }
+            fileLoader.value = '';
+        };
+        reader.readAsText(file);
+    };
+
+    function check_coeffs(a,b,c,d) {
+        if (d < 0) return false;
+        if (a + b + c + d < 0) return false;
+
+        d = b * b - 3 * c
+
+        if (d < 0) return true;
+
+        x1 = (-b + Math.sqrt(d)) / 3 / a;
+        x2 = (-b - Math.sqrt(d)) / 3 / a;
+
+        if (
+            x1 >= 0 && x1 <= 1 && a * x1**3 + b * x1**2 + c * x1 + d  < 0
+        ) return false;
+
+        if (
+            x2 >= 0 && x2 <= 1 && a * x2**3 + b * x2**2 + c * x2 + d  < 0
+        ) return false;
+
+        return true;
+    }
+
+    document.getElementById("genBtn").onclick = () => {
+
+        let norm_coeff = 2.5
+        document.querySelectorAll(".init").forEach(inp => inp.value = (Math.random() * 0.4 + 0.4).toFixed(3));
+        document.querySelectorAll(".limit").forEach(inp => inp.value = (Math.random() * 0.4 + 0.59).toFixed(3));
+        document.querySelectorAll(".norm").forEach(inp => inp.value = (norm_coeff).toFixed(3));
+
+
+        document.querySelectorAll(".f-column .block").forEach(block => {
+            let a, b, c, d;
+
+            do{
+                a = (Math.random() * 1 - 0.5).toFixed(3);
+                b = (Math.random() * 1 - 0.5).toFixed(3);
+                c = (Math.random() * 1 - 0.5).toFixed(3);
+                d = (Math.random() * 1 - 0.5).toFixed(3);
+            } while (!check_coeffs(a,b,c,d))
+
+            block.querySelector(".af").value = a;
+            block.querySelector(".bf").value = b;
+            block.querySelector(".cf").value = c;
+            block.querySelector(".df").value = d;
+        })
+
+        document.querySelectorAll(".z-column .block").forEach(block => {
+            let a, b, c, d;
+
+            do{
+                a = (Math.random() * 1 - 0.5).toFixed(3);
+                b = (Math.random() * 1 - 0.5).toFixed(3);
+                c = (Math.random() * 1 - 0.5).toFixed(3);
+                d = (Math.random() * 1 - 0.5).toFixed(3);
+            } while (!check_coeffs(a,b,c,d))
+
+            block.querySelector(".az").value = a;
+            block.querySelector(".bz").value = b;
+            block.querySelector(".cz").value = c;
+            block.querySelector(".dz").value = d;
+        })
+
+
+        // document.querySelectorAll(".af, .bf, .cf, .df").forEach(inp => {
+        //     let val = (Math.random() * 0.6 - 0.3).toFixed(3);
+        //     if (inp.classList.contains("cf")) val = (Math.random() * 0.3 - 0.15).toFixed(3);
+        //     if (inp.classList.contains("df")) val = (Math.random() * 0.4 - 0.2).toFixed(3);
+        //     inp.value = val;
+        // });
+        // document.querySelectorAll(".az, .bz, .cz, .dz").forEach(inp => {
+        //     let val = (Math.random() * 0.6 - 0.3).toFixed(3);
+        //     if (inp.classList.contains("cz")) val = (Math.random() * 0.3 - 0.15).toFixed(3);
+        //     if (inp.classList.contains("dz")) val = (Math.random() * 0.4 - 0.2).toFixed(3);
+        //     inp.value = val;
+        // });
+    };
+
+    function destroyResultsUI() {
+        const resultBtn = document.getElementById("resultTabBtn");
+        const clearBtn = document.querySelector(".clear-results-btn");
+        const resultTab = document.getElementById("tab4");
+        if (resultBtn) resultBtn.remove();
+        if (clearBtn) clearBtn.remove();
+        if (resultTab && resultTab.parentNode) resultTab.remove();
+        if (mainPlotDiv) {
+            try { Plotly.purge(mainPlotDiv); } catch(e) {}
+            mainPlotDiv = null;
+        }
+        radialChartElements = [];
+        currentSolutionData = null;
+        const firstTab = document.querySelector("#formTabs .tab-btn");
+        if (firstTab) firstTab.click();
+    }
+
+    function createResultTabAndRender(data) {
+        const formTabsDiv = document.getElementById("formTabs");
+        const formTabContentDiv = document.getElementById("formTabContent");
+
+        const resultBtn = document.createElement("button");
+        resultBtn.type = "button";
+        resultBtn.className = "tab-btn";
+        resultBtn.id = "resultTabBtn";
+        resultBtn.textContent = "Результат";
+        const clearBtn = document.createElement("button");
+        clearBtn.type = "button";
+        clearBtn.className = "clear-results-btn";
+        clearBtn.textContent = "✕";
+        clearBtn.title = "Скрыть результат";
+        clearBtn.onclick = () => { destroyResultsUI(); };
+        formTabsDiv.appendChild(resultBtn);
+        formTabsDiv.appendChild(clearBtn);
+
+        const resultTabDiv = document.createElement("div");
+        resultTabDiv.id = "tab4";
+        resultTabDiv.className = "tab";
+        formTabContentDiv.appendChild(resultTabDiv);
+
+        // Единая область: график + описание параметров СПРАВА
+        const resultsContainer = document.createElement("div");
+        resultsContainer.className = "result-section";
+        resultTabDiv.appendChild(resultsContainer);
+
+        resultBtn.onclick = () => {
+            document.querySelectorAll("#formTabs .tab-btn").forEach(b => b.classList.remove("active"));
+            document.querySelectorAll("#formTabContent .tab").forEach(t => t.classList.remove("active"));
+            resultBtn.classList.add("active");
+            resultTabDiv.classList.add("active");
+            setTimeout(() => {
+                if (mainPlotDiv && document.getElementById("tab4")?.classList.contains("active")) {
+                    const chartWrap = document.querySelector("#tab4 .chart-wrapper .chart-container");
+                    if (chartWrap) Plotly.relayout(mainPlotDiv, { width: chartWrap.clientWidth, height: 530 });
+                }
+                if (radialChartElements.length) {
+                    radialChartElements.forEach(ch => {
+                        if (ch && ch.parentElement) {
+                            const newWidth = ch.parentElement.clientWidth - 40;
+                            if (newWidth > 200) Plotly.relayout(ch, { width: newWidth, height: 430 });
+                        }
+                    });
+                }
+            }, 60);
+        };
+
+        renderUnifiedResults(resultsContainer, data);
+    }
+
+    function renderUnifiedResults(container, data) {
+        // Горизонтальный блок: график + справа описание параметров (текущие значения на последнем срезе)
+        const resultLayout = document.createElement("div");
+        resultLayout.className = "result-layout";
+
+        // Левая часть: график
+        const chartWrapper = document.createElement("div");
+        chartWrapper.className = "chart-wrapper";
+        const chartContainer = document.createElement("div");
+        chartContainer.className = "chart-container";
+        const plotDiv = document.createElement("div");
+        plotDiv.className = "full-width-chart";
+        chartContainer.appendChild(plotDiv);
+        chartWrapper.appendChild(chartContainer);
+        resultLayout.appendChild(chartWrapper);
+
+        // Правая часть: подписи параметров (с актуальными значениями на последний момент)
+        const sidebar = document.createElement("div");
+        sidebar.className = "params-sidebar";
+        const sidebarTitle = document.createElement("div");
+        sidebarTitle.style.fontWeight = "600";
+        sidebarTitle.style.marginBottom = "16px";
+        sidebarTitle.style.fontSize = "1rem";
+        sidebarTitle.style.background = "linear-gradient(135deg, #667eea 0%, #764ba2 100%)";
+        sidebarTitle.style.webkitBackgroundClip = "text";
+        sidebarTitle.style.backgroundClip = "text";
+        sidebarTitle.style.color = "transparent";
+        sidebarTitle.textContent = "Параметры";
+        sidebar.appendChild(sidebarTitle);
+
+        paramDescriptions.forEach((desc, i) => {
+            const item = document.createElement("div");
+            item.className = "param-item";
+            item.innerHTML = `
+                <div class="param-header">X<sub>${i+1}</sub> — ${desc}</div>
+            `;
+            sidebar.appendChild(item);
+        });
+        resultLayout.appendChild(sidebar);
+        container.appendChild(resultLayout);
+
+        mainPlotDiv = plotDiv;
+        const width = chartContainer.clientWidth || 700;
+        renderMainPlots(data.t, data.y, plotDiv, width);
+
+        // Радиальные диаграммы (5 срезов)
+        const radialWrapper = document.createElement("div");
+        radialWrapper.className = "radial-grid";
+        container.appendChild(radialWrapper);
+
+        const times = [0, 0.25, 0.5, 0.75, 1];
+        times.forEach(ti => {
+            const idx = Math.floor(ti * (data.t.length - 1));
+            const vals = data.y.map(v => v[idx]);
+            const tVal = data.t[idx].toFixed(2);
+            const radialItem = document.createElement("div");
+            radialItem.className = "radial-item";
+            const chartDiv = document.createElement("div");
+            chartDiv.className = "radial-chart";
+            const descDiv = document.createElement("div");
+            descDiv.className = "radial-description";
+            const titleH = document.createElement("h4");
+            titleH.textContent = `Параметры системы, вышедшие за границ нормы`;
+            descDiv.appendChild(titleH);
+
+            let counter = 0;
+
+            paramDescriptions.forEach((desc, i) => {
+                const curVal = vals[i];
+                const limVal = data.limits[i];
+                const isNormal = curVal <= limVal;
+
+                if (!isNormal) {
+                    counter++;
+
+                    const pItem = document.createElement("div");
+                    pItem.className = "param-item";
+                    pItem.style.padding = "6px 0";
+                    pItem.innerHTML = `<div class="param-header">X<sub>${i+1}</sub> — ${desc}</div>
+                    <div class="param-values">
+                        <span><span class="value-label">Текущее</span><span class="value-number current-over">${curVal.toFixed(3)}</span></span>
+                        <span><span class="value-label">Граница</span><span class="value-number limit-over">${limVal.toFixed(3)}</span></span>
+                    </div>`;
+                    descDiv.appendChild(pItem);
+                }
+
+            });
+
+            if (counter == 0) {
+                titleH.textContent = `Все параметры системы в границах нормы`;
+            }
+
+            radialItem.appendChild(chartDiv);
+            radialItem.appendChild(descDiv);
+            radialWrapper.appendChild(radialItem);
+
+            const radialLayout = {
+                title: `Параметры системы на момент t = ${tVal}`,
+                polar: { radialaxis: { range: [0, Math.max(...vals, ...data.limits) * 1.1] } },
+                margin: { t: 30, r: 30, b: 30, l: 30 },
+                showlegend: true,
+                autosize: true,
+                height: 430,
+                width: Math.min(600, radialItem.clientWidth || 540)
+            };
+            Plotly.newPlot(chartDiv, [
+                { type: "scatterpolar", r: vals, theta: vals.map((_,i)=>`X<sub>${i+1}</sub>`), name: "Параметры", line: { width: 2 }, marker: { size: 5 } },
+                { type: "scatterpolar", r: data.limits, theta: data.limits.map((_,i)=>`X<sub>${i+1}</sub>`), line: { color: 'red', width: 2, dash: 'dash' }, name: "Границы нормы" }
+            ], radialLayout, { displayModeBar: false }).then(() => {
+                radialChartElements.push(chartDiv);
+            });
+        });
+    }
+
+    function resizeRadialCharts() {
+        if(!document.getElementById("tab4")?.classList.contains("active")) return;
+        radialChartElements.forEach(ch => {
+            if (ch && ch.parentElement) {
+                const newWidth = ch.parentElement.clientWidth - 40;
+                if (newWidth > 200) Plotly.relayout(ch, { width: newWidth, height: 430 });
+            }
+        });
+    }
+
+    // Яркая палитра из index.html
+    const niceColors = [
+        '#CC5533', // Сбалансированный красно-терракотовый
+        '#7CB45E', // Мягкий травянисто-зеленый
+        '#4A7DB5', // Приятный васильковый
+        '#E8B52C', // Теплый медовый
+        '#3EC0B4', // Бирюзовый бриз (код поправлен на ~#3EC0B4)
+        '#C75B9C', // Спокойный розово-пурпурный
+        '#E3914C', // Нежный персиково-оранжевый
+        '#9B6FB0', // Лавандово-фиолетовый
+        '#A8663A', // Мягкий каштановый
+        '#F4A6B4', // Светло-розовый
+        '#4FBFA8', // Морской бирюзовый
+        '#D44F5E', // Спокойный малиновый
+        '#A5D454', // Салатово-лаймовый
+        '#5B4CB0', // Индиго (средний)
+        '#E8B62C', // Золотистый (повтор для ровности счета)
+        '#BCC6CC', // Серебристо-серый
+        '#9E424A', // Спокойный бордовый
+        '#7F8C3A', // Оливковый (приглушенный)
+        '#344B8C', // Темно-синий (средний)
+        '#2F6A4A', // Темно-зеленый (средний)
+        '#F07F6B', // Коралловый (мягкий)
+        '#C48AB8', // Сиреневый (чуть ярче)
+        '#B9A859', // Хаки (средний)
+        '#1F8A7A', // Темно-бирюзовый (средний)
+        '#D7A0D7', // Сливовый (чуть ярче)
+        '#CF8A6F', // Терракотовый (средний)
+        '#A8E6A8', // Мятный (чуть ярче)
+        '#E2C1E6', // Лавандовый (чуть ярче)
+        '#3B9E6B', // Морская волна (средняя)
+        '#D45A9F', // Фуксия (спокойная)
+        '#594550', // Баклажановый (средний)
+        '#E8C14C', // Горчичный (средний)
+        '#4682B4'  // Стальной синий (оставил, он и так хорош)
+    ];
+    function getColor(i){ return niceColors[i%niceColors.length]; }
+
+    function renderMainPlots(t, y, div, w) {
+        const traces = y.map((arr,i) => ({ x: t, y: arr, mode: 'lines', name: `X<sub>${i+1}</sub>`, line: { width: 3, color: getColor(i) } }));
+
+        // Простые аннотации без стрелок
+        const annotations = y.map((arr, i) => {
+            const lastIndex = arr.length - 3 * (i + 1);
+
+            return {
+                x: t[lastIndex],
+                y: arr[lastIndex],
+                xref: 'x',
+                yref: 'y',
+                yshift: 10,
+                text: `X<sub>${i + 1}</sub>`,
+                showarrow: false,
+                xanchor: 'left',
+                yanchor: 'middle',
+                font: {
+                    size: 14,
+                    color: '#2d3436'
+                },
+                bgcolor: 'rgba(255, 255, 255, 0.8)',
+                bordercolor: getColor(i)
+            };
+        });
+
+        const layout = {
+            margin: { t: 30, r: 30, b: 60, l: 60 },
+            legend: { orientation: 'v', x: 1.02, y: 1, xanchor: 'left', yanchor: 'top', bgcolor: 'rgba(255, 250, 240, 0.9)' },
+            xaxis: { title: 'Время', titlefont: { size: 14, weight: 'bold', color: '#4a5b4a' } },
+            yaxis: { title: 'Значение параметра', range: [0, 1], titlefont: { size: 14, weight: 'bold', color: '#4a5b4a' } },
+            width: w,
+            height: 530,
+            annotations: annotations,
+            hovermode: 'closest',
+            plot_bgcolor: '#fffdfa',
+            paper_bgcolor: '#fffdfa'
+        };
+
+        Plotly.newPlot(div, traces, layout, { responsive: true });
+        div.on('plotly_legendclick', e => { e.event.preventDefault(); const v = e.data[e.curveNumber].visible !== true; Plotly.restyle(div, { visible: v }, [e.curveNumber]); return false; });
+        window.addEventListener('resize', () => {
+            if(document.getElementById("tab4")?.classList.contains("active") && mainPlotDiv) {
+                const cw = document.querySelector("#tab4 .chart-wrapper .chart-container")?.clientWidth;
+                if(cw) Plotly.relayout(mainPlotDiv, { width: cw, height: 530 });
+            }
+            resizeRadialCharts();
+        });
+    }
+
+    document.getElementById("solveBtn").onclick = async () => {
+        destroyResultsUI();
+        try {
+            const payload = collectData();
+            const res = await fetch("/api/glass", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const data = await res.json();
+            if (data.status != -1) {
+                showNotification("Решение найдено", true);
+                currentSolutionData = data;
+                radialChartElements = [];
+                createResultTabAndRender(data);
+                const resultBtn = document.getElementById("resultTabBtn");
+                if (resultBtn) resultBtn.click();
+                setTimeout(() => {
+                    if (mainPlotDiv && document.getElementById("tab4")?.classList.contains("active")) {
+                        const container = document.querySelector("#tab4 .chart-wrapper .chart-container");
+                        if (container) Plotly.relayout(mainPlotDiv, { width: container.clientWidth, height: 530 });
+                    }
+                    if (radialChartElements.length) resizeRadialCharts();
+                }, 150);
+            } else {
+                showNotification("Решение не было найдено при заданных параметрах", false);
+            }
+        } catch(e) {
+            console.error(e);
+            showNotification("Ошибка при обращении к серверу", false);
+        }
+    };
+
+    createUnifiedTab();
+    loadFuzzyCoefficients();
+</script>
+</body>
+</html>
