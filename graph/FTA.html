@@ -1,0 +1,1972 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>FTA: Анализ дерева отказов</title>
+    <style>
+    :root {
+        --bg: #f4f7fb;
+        --bg-2: #eaf2ff;
+        --surface: rgba(255, 255, 255, 0.92);
+        --surface-solid: #ffffff;
+        --surface-soft: #f8fafc;
+        --text: #142033;
+        --muted: #64748b;
+        --border: #dbe5f0;
+        --border-strong: #cbd5e1;
+        --primary: #2563eb;
+        --primary-dark: #1d4ed8;
+        --primary-soft: #dbeafe;
+        --success: #16a34a;
+        --success-soft: #dcfce7;
+        --warning: #f59e0b;
+        --warning-dark: #d97706;
+        --warning-soft: #fef3c7;
+        --danger: #ef4444;
+        --danger-soft: #fee2e2;
+        --shadow-sm: 0 6px 18px rgba(15, 23, 42, 0.06);
+        --shadow-md: 0 18px 45px rgba(15, 23, 42, 0.10);
+        --radius-lg: 22px;
+        --radius-md: 16px;
+        --radius-sm: 12px;
+    }
+
+    * {
+        box-sizing: border-box;
+    }
+
+    html {
+        scroll-behavior: smooth;
+    }
+
+    body {
+        font-family: Inter, 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+        margin: 0;
+        min-height: 100vh;
+        color: var(--text);
+        display: flex;
+        flex-direction: column;
+        background:
+            radial-gradient(circle at 10% 8%, rgba(37, 99, 235, 0.14), transparent 32%),
+            radial-gradient(circle at 92% 4%, rgba(20, 184, 166, 0.12), transparent 34%),
+            linear-gradient(135deg, var(--bg), var(--bg-2));
+    }
+
+    body::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        background-image: linear-gradient(rgba(15, 23, 42, 0.035) 1px, transparent 1px), linear-gradient(90deg, rgba(15, 23, 42, 0.035) 1px, transparent 1px);
+        background-size: 36px 36px;
+        mask-image: linear-gradient(to bottom, rgba(0,0,0,0.38), transparent 62%);
+        z-index: -1;
+    }
+
+    header {
+        margin: 22px 24px 0;
+        padding: 22px 26px;
+        border: 1px solid rgba(219, 229, 240, 0.9);
+        border-radius: var(--radius-lg);
+        background: linear-gradient(135deg, rgba(255,255,255,0.95), rgba(248,250,252,0.88));
+        box-shadow: var(--shadow-sm);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 18px;
+        flex-wrap: wrap;
+        color: var(--text);
+        font-size: 0;
+    }
+
+    header::before {
+        content: "FTA";
+        display: inline-grid;
+        place-items: center;
+        width: 58px;
+        height: 58px;
+        border-radius: 18px;
+        background: linear-gradient(135deg, var(--primary), #14b8a6);
+        color: white;
+        font-size: 18px;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        box-shadow: 0 12px 26px rgba(37, 99, 235, 0.28);
+    }
+
+    header::after {
+        content: "Прогнозирование характеристик безопасности авиационных транспортных систем";
+        flex: 1 1 420px;
+        font-size: 1.35rem;
+        line-height: 1.25;
+        font-weight: 800;
+        letter-spacing: -0.03em;
+    }
+
+    main {
+        flex: 1;
+        width: min(100%, 1480px);
+        margin: 0 auto;
+        padding: 20px 24px 32px;
+    }
+
+    button,
+    input,
+    select {
+        font: inherit;
+    }
+
+    button {
+        padding: 10px 18px;
+        border-radius: 999px;
+        border: 1px solid var(--border);
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 700;
+        transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease, border-color 0.18s ease, color 0.18s ease;
+        background: var(--surface-solid);
+        color: var(--text);
+        box-shadow: 0 3px 10px rgba(15, 23, 42, 0.04);
+    }
+
+    button:hover {
+        transform: translateY(-1px);
+        border-color: var(--border-strong);
+        box-shadow: 0 9px 18px rgba(15, 23, 42, 0.08);
+    }
+
+    button:active {
+        transform: translateY(0);
+    }
+
+    button.primary {
+        background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+        color: white;
+        border-color: transparent;
+        box-shadow: 0 10px 22px rgba(37, 99, 235, 0.23);
+    }
+
+    button.primary:hover {
+        background: linear-gradient(135deg, #3b82f6, var(--primary-dark));
+    }
+
+    button.success {
+        background: linear-gradient(135deg, var(--success), #15803d);
+        color: white;
+        border-color: transparent;
+    }
+
+    button.warning {
+        background: linear-gradient(135deg, var(--warning), var(--warning-dark));
+        color: white;
+        border-color: transparent;
+    }
+
+    button.secondary {
+        background: linear-gradient(135deg, #0f766e, #115e59);
+        color: white;
+        border-color: transparent;
+    }
+
+    button.outline {
+        background: rgba(255,255,255,0.75);
+        color: var(--primary-dark);
+        border-color: #bfdbfe;
+    }
+
+    button.outline:hover {
+        background: var(--primary-soft);
+        border-color: #93c5fd;
+    }
+
+    .tabs {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        flex-wrap: wrap;
+        padding: 10px;
+        margin-bottom: 14px;
+        border: 1px solid rgba(219, 229, 240, 0.9);
+        border-radius: var(--radius-lg);
+        background: rgba(255,255,255,0.72);
+        backdrop-filter: blur(14px);
+        box-shadow: var(--shadow-sm);
+    }
+
+    .tab-btn {
+        background: transparent;
+        border-radius: 999px;
+        padding: 11px 18px;
+        font-weight: 800;
+        color: var(--muted);
+        border: 1px solid transparent;
+        margin-bottom: 0;
+        font-size: 14px;
+        box-shadow: none;
+    }
+
+    .tab-btn:hover {
+        background: rgba(37, 99, 235, 0.08);
+        color: var(--primary-dark);
+        box-shadow: none;
+    }
+
+    .tab-btn.active {
+        background: var(--surface-solid);
+        color: var(--primary-dark);
+        border-color: #bfdbfe;
+        box-shadow: 0 8px 20px rgba(37, 99, 235, 0.11);
+    }
+
+    .tab {
+        display: none;
+        background: var(--surface);
+        padding: 20px;
+        border: 1px solid rgba(219, 229, 240, 0.92);
+        border-radius: var(--radius-lg);
+        box-shadow: var(--shadow-md);
+        backdrop-filter: blur(14px);
+    }
+
+    .tab.active {
+        display: block;
+        animation: fadeIn 0.22s ease;
+    }
+
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(8px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    .param-panel {
+        background: linear-gradient(135deg, rgba(239, 246, 255, 0.95), rgba(240, 253, 250, 0.9));
+        border: 1px solid #bfdbfe;
+        border-radius: var(--radius-lg);
+        padding: 18px;
+        margin-top: 18px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 14px;
+        align-items: center;
+        box-shadow: var(--shadow-sm);
+    }
+
+    .param-panel label {
+        font-weight: 800;
+        display: inline-flex;
+        align-items: center;
+        gap: 9px;
+        color: #1e3a8a;
+        background: rgba(255,255,255,0.72);
+        border: 1px solid rgba(191,219,254,0.8);
+        padding: 9px 12px;
+        border-radius: 999px;
+        white-space: nowrap;
+    }
+
+    .range-group {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        color: #1e3a8a;
+        background: rgba(255,255,255,0.76);
+        border: 1px solid rgba(191,219,254,0.9);
+        padding: 8px 10px 8px 13px;
+        border-radius: 999px;
+        box-shadow: inset 0 1px 0 rgba(255,255,255,0.9);
+        white-space: nowrap;
+    }
+
+    .range-title {
+        font-weight: 900;
+        margin-right: 2px;
+    }
+
+    .range-bound {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-weight: 800;
+        color: #31518f;
+    }
+
+    .range-separator {
+        width: 1px;
+        height: 26px;
+        background: #bfdbfe;
+        margin: 0 2px;
+    }
+
+    .param-panel input,
+    .history-table input,
+    .speed-select {
+        padding: 9px 11px;
+        border-radius: 12px;
+        border: 1px solid var(--border-strong);
+        background: #ffffff;
+        width: 92px;
+        text-align: center;
+        font-weight: 800;
+        font-family: 'JetBrains Mono', 'SFMono-Regular', Consolas, monospace;
+        transition: border-color 0.15s ease, box-shadow 0.15s ease;
+        font-size: 13px;
+        color: var(--text);
+    }
+
+    .param-panel input:focus,
+    .history-table input:focus,
+    .speed-select:focus {
+        outline: none;
+        border-color: var(--primary);
+        box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12);
+    }
+
+    .history-table-container,
+    .docs-table-container {
+        max-height: 560px;
+        overflow: auto;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        background: var(--surface-solid);
+        box-shadow: inset 0 1px 0 rgba(255,255,255,0.8);
+    }
+
+    .history-table,
+    .docs-table {
+        border-collapse: separate;
+        border-spacing: 0;
+        width: 100%;
+        font-size: 13px;
+        min-width: 920px;
+    }
+
+    .history-table {
+        font-family: 'JetBrains Mono', 'SFMono-Regular', Consolas, monospace;
+    }
+
+    .history-table th,
+    .history-table td,
+    .docs-table th,
+    .docs-table td {
+        border-right: 1px solid var(--border);
+        border-bottom: 1px solid var(--border);
+        padding: 12px 11px;
+        text-align: center;
+        vertical-align: middle;
+        background: rgba(255,255,255,0.98);
+    }
+
+    .docs-table th,
+    .docs-table td {
+        text-align: left;
+        vertical-align: top;
+    }
+
+    .history-table tr:nth-child(even) td,
+    .docs-table tr:nth-child(even) td {
+        background: #f8fafc;
+    }
+
+    .history-table tr:hover td,
+    .docs-table tr:hover td {
+        background: #eff6ff;
+    }
+
+    .history-table th,
+    .docs-table th {
+        font-weight: 900;
+        position: sticky;
+        top: 0;
+        font-size: 12px;
+        background: linear-gradient(180deg, #f8fafc, #eef6ff);
+        z-index: 900;
+        color: #1e3a8a;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+    }
+
+    .history-table td:first-child,
+    .docs-table td:first-child {
+        font-weight: 900;
+        position: sticky;
+        left: 0;
+        z-index: 5;
+        background: #ffffff;
+        box-shadow: 8px 0 14px rgba(15, 23, 42, 0.04);
+    }
+
+    .docs-table td:first-child {
+        font-family: 'JetBrains Mono', 'SFMono-Regular', Consolas, monospace;
+        color: var(--primary-dark);
+        white-space: nowrap;
+        width: 90px;
+    }
+
+    .docs-table td:nth-child(3) {
+        color: var(--muted);
+        width: 210px;
+    }
+
+    .docs-table td:nth-child(4) {
+        font-family: 'JetBrains Mono', 'SFMono-Regular', Consolas, monospace;
+        color: var(--text);
+        white-space: nowrap;
+    }
+
+    .success-bg,
+    .fail-bg {
+        display: inline-block;
+        padding: 6px 9px;
+        min-width: 78px;
+        border-radius: 999px;
+        font-weight: 900;
+        border: 1px solid transparent;
+    }
+
+    .success-bg {
+        color: #166534;
+        background: var(--success-soft);
+        border-color: #bbf7d0;
+    }
+
+    .fail-bg {
+        color: #475569;
+        background: #e2e8f0;
+        border-color: #cbd5e1;
+    }
+
+    .prob-label {
+        font-weight: 900;
+        font-size: 13px;
+        color: var(--primary-dark);
+        font-family: 'JetBrains Mono', 'SFMono-Regular', Consolas, monospace;
+    }
+
+    .notification-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(15, 23, 42, 0.30);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 2000;
+        backdrop-filter: blur(8px);
+    }
+
+    .notification {
+        background: var(--surface-solid);
+        border-radius: 24px;
+        padding: 26px 32px;
+        min-width: 300px;
+        box-shadow: 0 28px 70px rgba(15,23,42,0.22);
+        text-align: center;
+        font-weight: 800;
+        border: 1px solid var(--border);
+        color: var(--text);
+    }
+
+    .notification.success { border-top: 6px solid var(--success); }
+    .notification.error { border-top: 6px solid var(--danger); }
+
+    .animation-controls {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 18px;
+        flex-wrap: wrap;
+        background: linear-gradient(135deg, rgba(239, 246, 255, 0.96), rgba(255,255,255,0.88));
+        padding: 16px;
+        border: 1px solid #bfdbfe;
+        border-radius: var(--radius-lg);
+        box-shadow: var(--shadow-sm);
+    }
+
+    .animation-controls select,
+    .animation-controls button {
+        font-size: 14px;
+        padding: 10px 16px;
+    }
+
+    .speed-select {
+        width: auto;
+        min-width: 110px;
+        cursor: pointer;
+    }
+
+    .play-pause-btn {
+        background: linear-gradient(135deg, var(--primary), #14b8a6);
+        color: white;
+        border: none;
+        width: 48px;
+        min-width: 48px;
+        height: 42px;
+        padding: 0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 18px;
+        border-radius: 999px;
+        box-shadow: 0 10px 20px rgba(37,99,235,0.22);
+    }
+
+    #canvas-container {
+        background:
+            linear-gradient(180deg, rgba(255,255,255,0.96), rgba(248,250,252,0.96));
+        border: 1px solid var(--border);
+        overflow: auto;
+        padding: 14px;
+        border-radius: var(--radius-lg);
+        box-shadow: inset 0 1px 0 rgba(255,255,255,0.9), var(--shadow-sm);
+    }
+
+    canvas {
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 18px;
+        display: block;
+        margin: 0 auto;
+        box-shadow: 0 14px 38px rgba(15, 23, 42, 0.07);
+    }
+
+    .step-indicator {
+        background: #ffffff;
+        padding: 10px 24px;
+        font-weight: 900;
+        font-size: 14px;
+        color: var(--primary-dark);
+        font-family: 'JetBrains Mono', 'SFMono-Regular', Consolas, monospace;
+        letter-spacing: 0.3px;
+        min-width: 130px;
+        text-align: center;
+        border: 1px solid #bfdbfe;
+        border-radius: 999px;
+        box-shadow: inset 0 1px 0 rgba(255,255,255,0.9);
+    }
+
+    .clear-results-btn {
+        background: #ffffff;
+        padding: 7px 10px;
+        margin-left: -4px;
+        font-size: 13px;
+        color: #64748b;
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        min-width: 34px;
+        box-shadow: none;
+    }
+
+    .clear-results-btn:hover {
+        background: var(--danger-soft);
+        color: #b91c1c;
+        border-color: #fecaca;
+    }
+
+    .docs-panel {
+        display: grid;
+        gap: 18px;
+    }
+
+    .docs-intro {
+        background: linear-gradient(135deg, rgba(239, 246, 255, 0.95), rgba(240, 253, 250, 0.88));
+        border: 1px solid #bfdbfe;
+        border-left: 6px solid var(--primary);
+        border-radius: var(--radius-lg);
+        padding: 16px 18px;
+        line-height: 1.55;
+        color: #1e3a8a;
+        box-shadow: var(--shadow-sm);
+    }
+
+    .docs-legend {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-top: 12px;
+    }
+
+    .docs-badge {
+        background: rgba(255,255,255,0.82);
+        border: 1px solid #bfdbfe;
+        border-radius: 999px;
+        padding: 7px 11px;
+        font-family: 'JetBrains Mono', 'SFMono-Regular', Consolas, monospace;
+        font-weight: 900;
+        color: var(--primary-dark);
+        box-shadow: 0 5px 14px rgba(37,99,235,0.08);
+    }
+
+    @media (max-width: 760px) {
+        header,
+        main {
+            margin-left: 12px;
+            margin-right: 12px;
+            padding-left: 12px;
+            padding-right: 12px;
+        }
+        header::after {
+            font-size: 1rem;
+        }
+        .tab {
+            padding: 12px;
+        }
+        .param-panel label,
+        .range-group {
+            width: 100%;
+            justify-content: space-between;
+        }
+
+        .range-group {
+            flex-wrap: wrap;
+            border-radius: 18px;
+        }
+
+        .range-separator {
+            display: none;
+        }
+    }
+
+    </style>
+</head>
+<body>
+    <header aria-label="FTA: Анализ дерева отказов"></header>
+    <main>
+        <div class="tabs" id="tabs"></div>
+        <div id="tabContent"></div>
+    </main>
+
+    <script>
+        // ГРАФ (узлы и связи) - полная структура дерева отказов
+        const allNodes = [
+            {id: 1, label: "B1", type: "EVENT", level: 0, x: 150, y: 20}, {id: 2, label: "B2", type: "EVENT", level: 0, x: 120, y: 50},
+            {id: 3, label: "B3", type: "EVENT", level: 0, x: 120, y: 90}, {id: 4, label: "B4", type: "EVENT", level: 0, x: 150, y: 120},
+            {id: 5, label: "B5", type: "EVENT", level: 0, x: 150, y: 170}, {id: 6, label: "B6", type: "EVENT", level: 0, x: 150, y: 250},
+            {id: 7, label: "B7", type: "EVENT", level: 0, x: 30, y: 180}, {id: 8, label: "B8", type: "EVENT", level: 0, x: 30, y: 240},
+            {id: 9, label: "B9", type: "EVENT", level: 0, x: 120, y: 300}, {id: 10, label: "B10", type: "EVENT", level: 0, x: 150, y: 340},
+            {id: 11, label: "B11", type: "EVENT", level: 0, x: 905, y: 280}, {id: 12, label: "B12", type: "EVENT", level: 0, x: 875, y: 252},
+            {id: 13, label: "B13", type: "EVENT", level: 0, x: 1005, y: 340}, {id: 14, label: "B14", type: "EVENT", level: 0, x: 1005, y: 300},
+            {id: 15, label: "B15", type: "EVENT", level: 0, x: 945, y: 260}, {id: 16, label: "B16", type: "EVENT", level: 0, x: 975, y: 230},
+            {id: 17, label: "B17", type: "EVENT", level: 0, x: 975, y: 190}, {id: 18, label: "B18", type: "EVENT", level: 0, x: 945, y: 160},
+            {id: 19, label: "B19", type: "EVENT", level: 0, x: 865, y: 170}, {id: 20, label: "B20", type: "EVENT", level: 0, x: 905, y: 140},
+            {id: 21, label: "B21", type: "EVENT", level: 0, x: 1005, y: 80}, {id: 22, label: "B22", type: "EVENT", level: 0, x: 1005, y: 120},
+            {id: 23, label: "B23", type: "EVENT", level: 0, x: 140, y: 410}, {id: 24, label: "B24", type: "EVENT", level: 0, x: 180, y: 445},
+            {id: 25, label: "B25", type: "EVENT", level: 0, x: 220, y: 445}, {id: 26, label: "B26", type: "EVENT", level: 0, x: 220, y: 490},
+            {id: 27, label: "B27", type: "EVENT", level: 0, x: 300, y: 495}, {id: 28, label: "B28", type: "EVENT", level: 0, x: 240, y: 595},
+            {id: 29, label: "B29", type: "EVENT", level: 0, x: 290, y: 595}, {id: 30, label: "B30", type: "EVENT", level: 0, x: 320, y: 445},
+            {id: 31, label: "B31", type: "EVENT", level: 0, x: 360, y: 445}, {id: 32, label: "B32", type: "EVENT", level: 0, x: 390, y: 410},
+            {id: 33, label: "B33", type: "EVENT", level: 0, x: 680, y: 410}, {id: 34, label: "B34", type: "EVENT", level: 0, x: 720, y: 445},
+            {id: 35, label: "B35", type: "EVENT", level: 0, x: 760, y: 445}, {id: 36, label: "B36", type: "EVENT", level: 0, x: 760, y: 490},
+            {id: 37, label: "B37", type: "EVENT", level: 0, x: 840, y: 490}, {id: 38, label: "B38", type: "EVENT", level: 0, x: 780, y: 595},
+            {id: 39, label: "B39", type: "EVENT", level: 0, x: 830, y: 595}, {id: 40, label: "B40", type: "EVENT", level: 0, x: 860, y: 445},
+            {id: 41, label: "B41", type: "EVENT", level: 0, x: 900, y: 445}, {id: 42, label: "B42", type: "EVENT", level: 0, x: 930, y: 410},
+            {id: 43, label: "B43", type: "EVENT", level: 0, x: 470, y: 585}, {id: 44, label: "B44", type: "EVENT", level: 0, x: 490, y: 555},
+            {id: 45, label: "B45", type: "EVENT", level: 0, x: 400, y: 685}, {id: 46, label: "B46", type: "EVENT", level: 0, x: 440, y: 685},
+            {id: 47, label: "B47", type: "EVENT", level: 0, x: 480, y: 625}, {id: 48, label: "B48", type: "EVENT", level: 0, x: 530, y: 655},
+            {id: 49, label: "B49", type: "EVENT", level: 0, x: 580, y: 624}, {id: 50, label: "B50", type: "EVENT", level: 0, x: 570, y: 555},
+            {id: 51, label: "B51", type: "EVENT", level: 0, x: 600, y: 585}, {id: 52, label: "B52", type: "EVENT", level: 0, x: 620, y: 685},
+            {id: 53, label: "B53", type: "EVENT", level: 0, x: 660, y: 685}, {id: 54, label: "B54", type: "EVENT", level: 0, x: 680, y: 590},
+            {id: 55, label: "B55", type: "EVENT", level: 0, x: 720, y: 560}, {id: 56, label: "B56", type: "EVENT", level: 0, x: 710, y: 500},
+            {id: 57, label: "B57", type: "EVENT", level: 0, x: 370, y: 585}, {id: 58, label: "B58", type: "EVENT", level: 0, x: 340, y: 555},
+            {id: 59, label: "B59", type: "EVENT", level: 0, x: 340, y: 515}, {id: 60, label: "B60", type: "EVENT", level: 0, x: 370, y: 485},
+            {id: 61, label: "S1", type: "EVENT", level: 1, x: 110, y: 210}, {id: 62, label: "S2", type: "EVENT", level: 1, x: 895, y: 320},
+            {id: 63, label: "S3", type: "EVENT", level: 1, x: 895, y: 100}, {id: 64, label: "S4", type: "EVENT", level: 1, x: 260, y: 510},
+            {id: 65, label: "S5", type: "EVENT", level: 1, x: 800, y: 510}, {id: 66, label: "S6", type: "EVENT", level: 1, x: 420, y: 585},
+            {id: 67, label: "S7", type: "EVENT", level: 1, x: 640, y: 585}, {id: 68, label: "F1", type: "EVENT", level: 2, x: 240, y: 150},
+            {id: 69, label: "F2", type: "EVENT", level: 2, x: 220, y: 210}, {id: 70, label: "F3", type: "EVENT", level: 2, x: 240, y: 270},
+            {id: 71, label: "F4", type: "EVENT", level: 2, x: 790, y: 260}, {id: 72, label: "F5", type: "EVENT", level: 2, x: 830, y: 210},
+            {id: 73, label: "F6", type: "EVENT", level: 2, x: 790, y: 160}, {id: 74, label: "F7", type: "EVENT", level: 2, x: 210, y: 350},
+            {id: 75, label: "F8", type: "EVENT", level: 2, x: 260, y: 390}, {id: 76, label: "F9", type: "EVENT", level: 2, x: 310, y: 350},
+            {id: 77, label: "F10", type: "EVENT", level: 2, x: 750, y: 350}, {id: 78, label: "F11", type: "EVENT", level: 2, x: 800, y: 390},
+            {id: 79, label: "F12", type: "EVENT", level: 2, x: 850, y: 350}, {id: 80, label: "F13", type: "EVENT", level: 2, x: 480, y: 490},
+            {id: 81, label: "F14", type: "EVENT", level: 2, x: 530, y: 520}, {id: 82, label: "F15", type: "EVENT", level: 2, x: 580, y: 490},
+            {id: 83, label: "F16", type: "EVENT", level: 2, x: 630, y: 470}, {id: 84, label: "F17", type: "EVENT", level: 2, x: 430, y: 470},
+            {id: 85, label: "G1", type: "EVENT", level: 3, x: 460, y: 210}, {id: 86, label: "G2", type: "EVENT", level: 3, x: 600, y: 210},
+            {id: 87, label: "G3", type: "EVENT", level: 3, x: 460, y: 300}, {id: 88, label: "G4", type: "EVENT", level: 3, x: 600, y: 300},
+            {id: 89, label: "G5", type: "EVENT", level: 3, x: 530, y: 340}, {id: 90, label: "R", type: "EVENT", level: 4, x: 530, y: 160},
+            {id: 91, label: "&", type: "AND", level: 0, x: 60, y: 210}, {id: 92, label: "&", type: "AND", level: 0, x: 945, y: 320},
+            {id: 93, label: "&", type: "AND", level: 0, x: 945, y: 100}, {id: 94, label: "&", type: "AND", level: 0, x: 260, y: 545},
+            {id: 95, label: "&", type: "AND", level: 0, x: 800, y: 545}, {id: 96, label: "&", type: "AND", level: 0, x: 420, y: 635},
+            {id: 97, label: "&", type: "AND", level: 0, x: 640, y: 635}, {id: 98, label: "1", type: "OR", level: 1, x: 160, y: 70},
+            {id: 99, label: "1", type: "OR", level: 1, x: 170, y: 210}, {id: 100, label: "1", type: "OR", level: 1, x: 180, y: 300},
+            {id: 101, label: "1", type: "OR", level: 1, x: 845, y: 300}, {id: 102, label: "1", type: "OR", level: 1, x: 915, y: 210},
+            {id: 103, label: "1", type: "OR", level: 1, x: 845, y: 120}, {id: 104, label: "1", type: "OR", level: 1, x: 190, y: 395},
+            {id: 105, label: "1", type: "OR", level: 1, x: 260, y: 450}, {id: 106, label: "1", type: "OR", level: 1, x: 330, y: 395},
+            {id: 107, label: "1", type: "OR", level: 1, x: 730, y: 395}, {id: 108, label: "1", type: "OR", level: 1, x: 800, y: 450},
+            {id: 109, label: "1", type: "OR", level: 1, x: 870, y: 395}, {id: 110, label: "1", type: "OR", level: 1, x: 440, y: 535},
+            {id: 111, label: "1", type: "OR", level: 1, x: 530, y: 605}, {id: 112, label: "1", type: "OR", level: 1, x: 620, y: 535},
+            {id: 113, label: "1", type: "OR", level: 1, x: 680, y: 535}, {id: 114, label: "1", type: "OR", level: 1, x: 390, y: 535},
+            {id: 115, label: "1", type: "OR", level: 2, x: 270, y: 210}, {id: 116, label: "1", type: "OR", level: 2, x: 770, y: 210},
+            {id: 117, label: "1", type: "OR", level: 2, x: 260, y: 330}, {id: 118, label: "1", type: "OR", level: 2, x: 800, y: 330},
+            {id: 119, label: "1", type: "OR", level: 2, x: 530, y: 445}, {id: 120, label: "1", type: "OR", level: 3, x: 530, y: 250}
+        ];
+        const allEdges = [
+            {id: 1, source: 1, target: 98, prob: 0.5}, {id: 2, source: 2, target: 98, prob: 0.5}, {id: 3, source: 3, target: 98, prob: 0.5}, {id: 4, source: 4, target: 98, prob: 0.5},
+            {id: 5, source: 5, target: 99, prob: 0.5}, {id: 6, source: 6, target: 99, prob: 0.5}, {id: 7, source: 7, target: 91, prob: 0.5}, {id: 8, source: 8, target: 91, prob: 0.5},
+            {id: 9, source: 61, target: 99, prob: 0.5}, {id: 10, source: 9, target: 100, prob: 0.5}, {id: 11, source: 10, target: 100, prob: 0.5},
+            {id: 12, source: 11, target: 101, prob: 0.5}, {id: 13, source: 12, target: 101, prob: 0.5}, {id: 14, source: 13, target: 92, prob: 0.5}, {id: 15, source: 14, target: 92, prob: 0.5},
+            {id: 16, source: 62, target: 101, prob: 0.5}, {id: 17, source: 15, target: 102, prob: 0.5}, {id: 18, source: 16, target: 102, prob: 0.5}, {id: 19, source: 17, target: 102, prob: 0.5},
+            {id: 20, source: 18, target: 102, prob: 0.5}, {id: 21, source: 19, target: 103, prob: 0.5}, {id: 22, source: 20, target: 103, prob: 0.5}, {id: 23, source: 21, target: 93, prob: 0.5},
+            {id: 24, source: 22, target: 93, prob: 0.5}, {id: 25, source: 63, target: 103, prob: 0.5}, {id: 26, source: 23, target: 104, prob: 0.5}, {id: 27, source: 24, target: 104, prob: 0.5},
+            {id: 28, source: 25, target: 104, prob: 0.5}, {id: 29, source: 26, target: 105, prob: 0.5}, {id: 30, source: 27, target: 105, prob: 0.5}, {id: 31, source: 28, target: 94, prob: 0.5},
+            {id: 32, source: 29, target: 94, prob: 0.5}, {id: 33, source: 64, target: 105, prob: 0.5}, {id: 34, source: 30, target: 106, prob: 0.5}, {id: 35, source: 31, target: 106, prob: 0.5},
+            {id: 36, source: 32, target: 106, prob: 0.5}, {id: 37, source: 33, target: 107, prob: 0.5}, {id: 38, source: 34, target: 107, prob: 0.5}, {id: 39, source: 35, target: 107, prob: 0.5},
+            {id: 40, source: 36, target: 108, prob: 0.5}, {id: 41, source: 37, target: 108, prob: 0.5}, {id: 42, source: 38, target: 95, prob: 0.5}, {id: 43, source: 39, target: 95, prob: 0.5},
+            {id: 44, source: 65, target: 108, prob: 0.5}, {id: 45, source: 40, target: 109, prob: 0.5}, {id: 46, source: 41, target: 109, prob: 0.5}, {id: 47, source: 42, target: 109, prob: 0.5},
+            {id: 48, source: 43, target: 110, prob: 0.5}, {id: 49, source: 44, target: 110, prob: 0.5}, {id: 50, source: 45, target: 96, prob: 0.5}, {id: 51, source: 46, target: 96, prob: 0.5},
+            {id: 52, source: 66, target: 110, prob: 0.5}, {id: 53, source: 47, target: 111, prob: 0.5}, {id: 54, source: 48, target: 111, prob: 0.5}, {id: 55, source: 49, target: 111, prob: 0.5},
+            {id: 56, source: 50, target: 112, prob: 0.5}, {id: 57, source: 51, target: 112, prob: 0.5}, {id: 58, source: 52, target: 97, prob: 0.5}, {id: 59, source: 53, target: 97, prob: 0.5},
+            {id: 60, source: 67, target: 112, prob: 0.5}, {id: 61, source: 54, target: 113, prob: 0.5}, {id: 62, source: 55, target: 113, prob: 0.5}, {id: 63, source: 56, target: 113, prob: 0.5},
+            {id: 64, source: 57, target: 114, prob: 0.5}, {id: 65, source: 58, target: 114, prob: 0.5}, {id: 66, source: 59, target: 114, prob: 0.5}, {id: 67, source: 60, target: 114, prob: 0.5},
+            {id: 68, source: 91, target: 61, prob: null}, {id: 69, source: 92, target: 62, prob: null}, {id: 70, source: 93, target: 63, prob: null}, {id: 71, source: 94, target: 64, prob: null},
+            {id: 72, source: 95, target: 65, prob: null}, {id: 73, source: 96, target: 66, prob: null}, {id: 74, source: 97, target: 67, prob: null}, {id: 75, source: 98, target: 68, prob: null},
+            {id: 76, source: 99, target: 69, prob: null}, {id: 77, source: 100, target: 70, prob: null}, {id: 78, source: 101, target: 71, prob: null}, {id: 79, source: 102, target: 72, prob: null},
+            {id: 80, source: 103, target: 73, prob: null}, {id: 81, source: 104, target: 74, prob: null}, {id: 82, source: 105, target: 75, prob: null}, {id: 83, source: 106, target: 76, prob: null},
+            {id: 84, source: 107, target: 77, prob: null}, {id: 85, source: 108, target: 78, prob: null}, {id: 86, source: 109, target: 79, prob: null}, {id: 87, source: 110, target: 80, prob: null},
+            {id: 88, source: 111, target: 81, prob: null}, {id: 89, source: 112, target: 82, prob: null}, {id: 90, source: 113, target: 83, prob: null}, {id: 91, source: 114, target: 84, prob: null},
+            {id: 92, source: 68, target: 115, prob: 0.5}, {id: 93, source: 69, target: 115, prob: 0.5}, {id: 94, source: 70, target: 115, prob: 0.5}, {id: 95, source: 115, target: 85, prob: null},
+            {id: 96, source: 71, target: 116, prob: 0.5}, {id: 97, source: 72, target: 116, prob: 0.5}, {id: 98, source: 73, target: 116, prob: 0.5}, {id: 99, source: 116, target: 86, prob: null},
+            {id: 100, source: 74, target: 117, prob: 0.5}, {id: 101, source: 75, target: 117, prob: 0.5}, {id: 102, source: 76, target: 117, prob: 0.5}, {id: 103, source: 117, target: 87, prob: null},
+            {id: 104, source: 77, target: 118, prob: 0.5}, {id: 105, source: 78, target: 118, prob: 0.5}, {id: 106, source: 79, target: 118, prob: 0.5}, {id: 107, source: 118, target: 88, prob: null},
+            {id: 108, source: 80, target: 119, prob: 0.5}, {id: 109, source: 81, target: 119, prob: 0.5}, {id: 110, source: 82, target: 119, prob: 0.5}, {id: 111, source: 83, target: 119, prob: 0.5},
+            {id: 112, source: 84, target: 119, prob: 0.5}, {id: 113, source: 119, target: 89, prob: null}, {id: 114, source: 85, target: 120, prob: 0.5}, {id: 115, source: 86, target: 120, prob: 0.5},
+            {id: 116, source: 87, target: 120, prob: 0.5}, {id: 117, source: 88, target: 120, prob: 0.5}, {id: 118, source: 89, target: 120, prob: 0.5}, {id: 119, source: 120, target: 90, prob: null}
+        ];
+
+        const nodeMap = new Map(allNodes.map(n => [n.id, n]));
+        const probEdges = allEdges.filter(e => e.prob !== null);
+        let fixedProbs = {};
+        let fixedLowerBounds = {};
+        let simulationRuns = [];
+        let N = 0;
+        let randomProbMin = 0.78;
+        let randomProbMax = 1.00;
+        let randomLowerMin = 0.00;
+        let randomLowerMax = 0.15;
+        probEdges.forEach(edge => { fixedProbs[edge.id] = 0.85; fixedLowerBounds[edge.id] = 0.05; });
+
+        function clampProbability(value, fallback = 0) {
+            const number = parseFloat(value);
+            if (Number.isNaN(number)) return fallback;
+            return Math.min(1, Math.max(0, number));
+        }
+
+        function readRandomProbabilityRange() {
+            const minInput = document.getElementById("randomProbMin");
+            const maxInput = document.getElementById("randomProbMax");
+            let x = clampProbability(minInput?.value, randomProbMin);
+            let y = clampProbability(maxInput?.value, randomProbMax);
+
+            if (x > y) [x, y] = [y, x];
+
+            randomProbMin = x;
+            randomProbMax = y;
+
+            if (minInput) minInput.value = x.toFixed(2);
+            if (maxInput) maxInput.value = y.toFixed(2);
+
+            return { x, y };
+        }
+
+        function readRandomLowerRange() {
+            const minInput = document.getElementById("randomLowerMin");
+            const maxInput = document.getElementById("randomLowerMax");
+            let x = clampProbability(minInput?.value, randomLowerMin);
+            let y = clampProbability(maxInput?.value, randomLowerMax);
+
+            if (x > y) [x, y] = [y, x];
+
+            randomLowerMin = x;
+            randomLowerMax = y;
+
+            if (minInput) minInput.value = x.toFixed(2);
+            if (maxInput) maxInput.value = y.toFixed(2);
+
+            return { x, y };
+        }
+
+        function normalizeProbabilityInterval(edgeId) {
+            const p = clampProbability(fixedProbs[edgeId], 0.85);
+            const lower = clampProbability(fixedLowerBounds[edgeId], 0.05);
+            fixedProbs[edgeId] = p;
+            fixedLowerBounds[edgeId] = Math.min(lower, p);
+        }
+
+        //заполнение рандомом: верхняя граница p и нижняя граница x генерируются отдельно
+        function generateRandomProbabilities() {
+            const probRange = readRandomProbabilityRange();
+            const lowerRange = readRandomLowerRange();
+            probEdges.forEach(edge => {
+                const p = parseFloat((probRange.x + Math.random() * (probRange.y - probRange.x)).toFixed(4));
+                const lower = parseFloat((lowerRange.x + Math.random() * (lowerRange.y - lowerRange.x)).toFixed(4));
+                fixedProbs[edge.id] = p;
+                fixedLowerBounds[edge.id] = Math.min(lower, p);
+            });
+            renderHistoryTableNew();
+            showNotification(`Сгенерированы интервалы успеха: нижняя граница ${lowerRange.x.toFixed(2)}–${lowerRange.y.toFixed(2)}, p ${probRange.x.toFixed(2)}–${probRange.y.toFixed(2)}`, true);
+        }
+        
+        //построение таблицы
+        function renderHistoryTableNew() {
+            const historyTabDiv = document.getElementById("tab1");
+            if (!historyTabDiv) return;
+            historyTabDiv.innerHTML = '';
+            
+            const tableContainer = document.createElement("div");
+            tableContainer.className = "history-table-container";
+            const table = document.createElement("table");
+            table.className = "history-table";
+            const thead = document.createElement("thead");
+            let headerRow = document.createElement("tr");
+            headerRow.appendChild(document.createElement("th")).textContent = "Вероятности для ребер";
+            headerRow.appendChild(document.createElement("th")).textContent = "Нижняя граница (x)";
+            headerRow.appendChild(document.createElement("th")).textContent = "Верхняя граница (p)";
+            for (let i = 1; i <= simulationRuns.length; i++) {
+                let th = document.createElement("th");
+                th.textContent = `Розыгрыш #${i}`;
+                headerRow.appendChild(th);
+            }
+            thead.appendChild(headerRow);
+            table.appendChild(thead);
+            const tbody = document.createElement("tbody");
+            probEdges.forEach(edge => {
+                const row = tbody.insertRow();
+                const descCell = row.insertCell(0);
+                descCell.innerHTML = `<span class="prob-label">p<sub>${edge.id}</sub></span>`;
+
+                const lowerCell = row.insertCell(1);
+                const inputLower = document.createElement("input");
+                inputLower.type = "number";
+                inputLower.step = "0.01";
+                inputLower.min = "0";
+                inputLower.max = "1";
+                inputLower.value = fixedLowerBounds[edge.id];
+                inputLower.style.width = "85px";
+                inputLower.title = "Нижняя граница успешного интервала";
+                inputLower.addEventListener("change", (e) => {
+                    fixedLowerBounds[edge.id] = clampProbability(e.target.value, fixedLowerBounds[edge.id]);
+                    normalizeProbabilityInterval(edge.id);
+                    e.target.value = fixedLowerBounds[edge.id].toFixed(4);
+                });
+                lowerCell.appendChild(inputLower);
+                lowerCell.className = "fixed-prob-cell";
+
+                const probCell = row.insertCell(2);
+                const inputProb = document.createElement("input");
+                inputProb.type = "number";
+                inputProb.step = "0.01";
+                inputProb.min = "0";
+                inputProb.max = "1";
+                inputProb.value = fixedProbs[edge.id];
+                inputProb.style.width = "85px";
+                inputProb.title = "Верхняя граница успешного интервала";
+                inputProb.addEventListener("change", (e) => {
+                    fixedProbs[edge.id] = clampProbability(e.target.value, fixedProbs[edge.id]);
+                    normalizeProbabilityInterval(edge.id);
+                    e.target.value = fixedProbs[edge.id].toFixed(4);
+                    inputLower.value = fixedLowerBounds[edge.id].toFixed(4);
+                });
+                probCell.appendChild(inputProb);
+                probCell.className = "fixed-prob-cell";
+                for (let runIdx = 0; runIdx < simulationRuns.length; runIdx++) {
+                    const run = simulationRuns[runIdx];
+                    const genVal = run.generatedValues[edge.id];
+                    const success = run.successes[edge.id];
+                    const valCell = row.insertCell();
+                    valCell.innerHTML = genVal !== undefined ? `<span class="${success ? 'success-bg' : 'fail-bg'}">${genVal.toFixed(4)}</span>` : "-";
+                }
+            });
+            table.appendChild(tbody);
+            tableContainer.appendChild(table);
+            historyTabDiv.appendChild(tableContainer);
+
+            const paramPanel = document.createElement('div');
+            paramPanel.className = 'param-panel';
+            paramPanel.innerHTML = `
+                <label>Количество итераций: <input type="number" id="runsCount" min="1" max="100" value="${N || 10}" style="width:80px"></label>
+                <div class="range-group" aria-label="Диапазон генерации нижней границы x">
+                    <span class="range-title">Нижняя граница x:</span>
+                    <span class="range-bound">от <input type="number" id="randomLowerMin" min="0" max="1" step="0.01" value="${randomLowerMin.toFixed(2)}" style="width:70px"></span>
+                    <span class="range-separator" aria-hidden="true"></span>
+                    <span class="range-bound">до <input type="number" id="randomLowerMax" min="0" max="1" step="0.01" value="${randomLowerMax.toFixed(2)}" style="width:70px"></span>
+                </div>
+                <div class="range-group" aria-label="Диапазон генерации верхней границы p">
+                    <span class="range-title">Верхняя граница p:</span>
+                    <span class="range-bound">от <input type="number" id="randomProbMin" min="0" max="1" step="0.01" value="${randomProbMin.toFixed(2)}" style="width:70px"></span>
+                    <span class="range-separator" aria-hidden="true"></span>
+                    <span class="range-bound">до <input type="number" id="randomProbMax" min="0" max="1" step="0.01" value="${randomProbMax.toFixed(2)}" style="width:70px"></span>
+                </div>
+                <button id="generateProbsBtn" class="secondary">Генерация интервалов x–p</button>
+                <button id="applyRunsBtn" class="primary">Разыграть вероятности</button>
+                <button id="animateBtn" class="warning">Анимация FTA</button>
+            `;
+            historyTabDiv.appendChild(paramPanel);
+
+            document.getElementById("applyRunsBtn")?.addEventListener("click", () => {
+                const inputN = parseInt(document.getElementById("runsCount").value);
+                if (isNaN(inputN) || inputN < 1) { showNotification("Введите N >= 1", false); return; }
+                N = inputN;
+                runMultipleSimulations(N);
+                renderHistoryTableNew();
+                showNotification(`Выполнено ${N} розыгрышей`, true);
+            });
+            document.getElementById("randomLowerMin")?.addEventListener("change", readRandomLowerRange);
+            document.getElementById("randomLowerMax")?.addEventListener("change", readRandomLowerRange);
+            document.getElementById("randomProbMin")?.addEventListener("change", readRandomProbabilityRange);
+            document.getElementById("randomProbMax")?.addEventListener("change", readRandomProbabilityRange);
+            document.getElementById("generateProbsBtn")?.addEventListener("click", generateRandomProbabilities);
+            document.getElementById("animateBtn").onclick = createAnimationTab;
+        }
+        
+        function runMultipleSimulations(count) {
+            simulationRuns = [];
+            for (let i = 1; i <= count; i++) {
+                const generatedValues = {};
+                const successes = {};
+                probEdges.forEach(edge => {
+                    normalizeProbabilityInterval(edge.id);
+                    const lower = fixedLowerBounds[edge.id];
+                    const p = fixedProbs[edge.id];
+                    const rand = Math.random();
+                    generatedValues[edge.id] = rand;
+                    successes[edge.id] = rand >= lower && rand <= p;
+                });
+                simulationRuns.push({ runIndex: i, generatedValues, successes });
+            }
+        }
+        
+        //Логика  отрисовки куска дерева по вероятностям (что рисуем, а что нет. основан на BFS)
+        function getActiveNodesForRun(iterationIndex) {
+            const candidateNodes = new Set(allNodes.map(node => node.id));
+            const candidateEdges = new Set(allEdges.map(edge => edge.id));
+
+            if (iterationIndex === 0) return {activeNodes: candidateNodes, activeEdges: candidateEdges};
+            const iter = simulationRuns[iterationIndex - 1];
+            if (!iter) return {activeNodes: new Set(), activeEdges: new Set()};
+
+            for (const edge of probEdges) if (!iter.successes[edge.id]) candidateEdges.delete(edge.id);
+            const logicNodes = allNodes.filter(node => node.type === "OR" || node.type === "AND").sort((a, b) => a.level - b.level);
+
+            for (const logicNode of logicNodes) {
+                const inEdges = allEdges.filter(edge => edge.target === logicNode.id);
+                let removeHigher = false;
+                if (logicNode.type === "OR") {
+                    let count = 0;
+                    for (const inEdge of inEdges){ if (!candidateEdges.has(inEdge.id)){ candidateNodes.delete(inEdge.source); count++; } }
+                    removeHigher = count === inEdges.length;
+                } else {
+                    let flag = false;
+                    for (const inEdge of inEdges) if (!candidateEdges.has(inEdge.id)) { flag = true; break; }
+                    if (flag) { for (const inEdge of inEdges){ candidateEdges.delete(inEdge.id); candidateNodes.delete(inEdge.source); } removeHigher = true; }
+                }
+                if (removeHigher) {
+                    candidateNodes.delete(logicNode.id);
+                    const outEdge = allEdges.filter(edge => edge.source === logicNode.id)[0];
+                    if(outEdge) { const outNode = allNodes.filter(node => node.id === outEdge.target)[0]; const outOutEdge = allEdges.filter(edge => edge.source === outNode?.id)[0]; candidateEdges.delete(outEdge.id); if(outNode) candidateNodes.delete(outNode.id); if(outOutEdge) candidateEdges.delete(outOutEdge.id); }
+                }
+            }
+
+            const activeNodes = new Set();
+            const activeEdges = new Set();
+            const t0Node = allNodes.filter(node => node.label === "R")[0];
+            if(!t0Node) return {activeNodes, activeEdges};
+            let queue = [t0Node.id], visited = new Set([t0Node.id]);
+            while (queue.length){
+                const curr = queue.shift();
+                activeNodes.add(curr);
+                const inEdges = allEdges.filter(edge => edge.target === curr && candidateEdges.has(edge.id));
+                for (const inEdge of inEdges) { if (!visited.has(inEdge.source)) { queue.push(inEdge.source); visited.add(inEdge.source); } activeEdges.add(inEdge.id); }
+            }
+            return {activeNodes, activeEdges};
+        }
+        
+        //отрисовка конкретного шага
+        function drawAnimatedTreeForRun(step) {
+            const canvas = document.getElementById("animationCanvas");
+            if (!canvas) return;
+            canvas.width = 1040; canvas.height = 700;
+            const ctx = canvas.getContext("2d");
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = "#ffffff";
+            ctx.fillRect(0,0,canvas.width,canvas.height);
+            const { activeNodes, activeEdges } = getActiveNodesForRun(step);
+            for (const edge of allEdges) {
+                if (!activeEdges.has(edge.id)) continue;
+                const src = nodeMap.get(edge.source), tgt = nodeMap.get(edge.target);
+                if(!src || !tgt) continue;
+                const isFromLogic = src.type === "AND" || src.type === "OR";
+                drawLine(ctx, src.x, src.y, tgt.x, tgt.y, isFromLogic ? "#d97706" : "#3b82f6", isFromLogic ? 2.5 : 2);
+                if (edge.prob !== null && step > 0 && simulationRuns[step-1]) drawEdgeLabel(ctx, src.x, src.y, tgt.x, tgt.y, `${fixedLowerBounds[edge.id].toFixed(2)}–${fixedProbs[edge.id].toFixed(2)}`);
+            }
+            for (const node of allNodes) {
+                if (!activeNodes.has(node.id)) continue;
+                if (node.type === "OR" || node.type === "AND") drawLogicNode(ctx, node.x, node.y, node.label, node.type);
+                else drawEventNode(ctx, node.x, node.y, node.label, node.label === "R");
+            }
+        }
+        
+        //узлы событий (B1, F1,...)
+        function drawEventNode(ctx, x, y, text, isR0) {
+            const w = 32, h = 22;
+            ctx.beginPath();
+            ctx.rect(x - w/2, y - h/2, w, h);
+            ctx.fillStyle = isR0 ? "#fee2e2" : "#e6f4e6";
+            ctx.fill();
+            ctx.strokeStyle = isR0 ? "#b91c1c" : "#6b9e42";
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+            ctx.fillStyle = isR0 ? "#991b1b" : "#2b5e2b";
+            ctx.font = "500 12px 'Inter', monospace";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillText(text, x, y);
+        }
+
+        //Логические узлы
+        function drawLogicNode(ctx, x, y, text, type) {
+            const size = 26;
+            ctx.beginPath();
+            ctx.rect(x - size/2, y - size/2, size, size);
+            ctx.fillStyle = "#fff3e0";
+            ctx.fill();
+            ctx.strokeStyle = "#d97706";
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+            ctx.fillStyle = "#b86f2c";
+            ctx.font = "bold 11px 'Inter', monospace";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillText(text, x, y);
+        }
+
+        //Ребра
+        function drawLine(ctx, x1, y1, x2, y2, color, width) {
+            ctx.beginPath();
+            ctx.moveTo(x1, y1);
+            ctx.lineTo(x2, y2);
+            ctx.strokeStyle = color;
+            ctx.lineWidth = width;
+            ctx.stroke();
+        }
+
+        //Текстовые метки ребер: центрируем по середине ребра.
+        //В анимации значения выводятся без подложки и обводки.
+        function drawEdgeLabel(ctx, x1, y1, x2, y2, val) {
+            const mx = (x1 + x2) / 2;
+            const my = (y1 + y2) / 2;
+            let ang = Math.atan2(y2 - y1, x2 - x1);
+            if (ang > Math.PI / 2 || ang < -Math.PI / 2) ang += Math.PI;
+
+            ctx.save();
+            ctx.translate(mx, my);
+            ctx.rotate(ang);
+            ctx.font = "700 11px 'JetBrains Mono', 'SFMono-Regular', Consolas, monospace";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillStyle = "#1e3a8a";
+            ctx.fillText(val, 0, -11);
+            ctx.restore();
+        }
+
+        //Отрисовка дерева (всего)
+        function drawFullTreeStatic() {
+            const canvas = document.getElementById("graphCanvas");
+
+            if(!canvas) return;
+
+            canvas.width = 1060; canvas.height = 700;
+            const ctx = canvas.getContext("2d");
+            ctx.fillStyle = "#ffffff";
+            ctx.fillRect(0,0,canvas.width,canvas.height);
+
+            for(const e of allEdges){
+                let s = nodeMap.get(e.source), t = nodeMap.get(e.target);
+                if(!s || !t) continue;
+                let isLogic = s.type === "AND" || s.type === "OR";
+                drawLine(ctx, s.x, s.y, t.x, t.y, isLogic ? "#d97706" : "#3b82f6", isLogic ? 2.2 : 1.8);
+                if(e.prob !== null) drawEdgeLabel(ctx, s.x, s.y, t.x, t.y, `p${e.id}`);
+            }
+
+            for(const n of allNodes){
+                if(n.type === "OR" || n.type === "AND") drawLogicNode(ctx, n.x, n.y, n.label, n.type);
+                else drawEventNode(ctx, n.x, n.y, n.label, n.label === "R");
+            }
+        }
+        
+        //БЛОК АНИМАЦИИ
+        let animationTabCounter = 0;
+        const animationTabs = new Map();
+
+        function cloneSimulationRuns() {
+            return simulationRuns.map(run => ({
+                runIndex: run.runIndex,
+                generatedValues: { ...run.generatedValues },
+                successes: { ...run.successes }
+            }));
+        }
+
+        function stopAnimationTab(state) {
+            if (!state) return;
+            if (state.interval) {
+                clearInterval(state.interval);
+                state.interval = null;
+            }
+            state.isPlaying = false;
+            const playBtn = document.getElementById(`playPauseAnimBtn_${state.id}`);
+            if (playBtn) playBtn.textContent = "▶";
+        }
+
+        function getActiveNodesForRun(iterationIndex, runs = simulationRuns) {
+            const candidateNodes = new Set(allNodes.map(node => node.id));
+            const candidateEdges = new Set(allEdges.map(edge => edge.id));
+
+            if (iterationIndex === 0) return {activeNodes: candidateNodes, activeEdges: candidateEdges};
+            const iter = runs[iterationIndex - 1];
+            if (!iter) return {activeNodes: new Set(), activeEdges: new Set()};
+
+            for (const edge of probEdges) if (!iter.successes[edge.id]) candidateEdges.delete(edge.id);
+            const logicNodes = allNodes.filter(node => node.type === "OR" || node.type === "AND").sort((a, b) => a.level - b.level);
+
+            for (const logicNode of logicNodes) {
+                const inEdges = allEdges.filter(edge => edge.target === logicNode.id);
+                let removeHigher = false;
+                if (logicNode.type === "OR") {
+                    let count = 0;
+                    for (const inEdge of inEdges){ if (!candidateEdges.has(inEdge.id)){ candidateNodes.delete(inEdge.source); count++; } }
+                    removeHigher = count === inEdges.length;
+                } else {
+                    let flag = false;
+                    for (const inEdge of inEdges) if (!candidateEdges.has(inEdge.id)) { flag = true; break; }
+                    if (flag) { for (const inEdge of inEdges){ candidateEdges.delete(inEdge.id); candidateNodes.delete(inEdge.source); } removeHigher = true; }
+                }
+                if (removeHigher) {
+                    candidateNodes.delete(logicNode.id);
+                    const outEdge = allEdges.filter(edge => edge.source === logicNode.id)[0];
+                    if(outEdge) { const outNode = allNodes.filter(node => node.id === outEdge.target)[0]; const outOutEdge = allEdges.filter(edge => edge.source === outNode?.id)[0]; candidateEdges.delete(outEdge.id); if(outNode) candidateNodes.delete(outNode.id); if(outOutEdge) candidateEdges.delete(outOutEdge.id); }
+                }
+            }
+
+            const activeNodes = new Set();
+            const activeEdges = new Set();
+            const t0Node = allNodes.filter(node => node.label === "R")[0];
+            if(!t0Node) return {activeNodes, activeEdges};
+            let queue = [t0Node.id], visited = new Set([t0Node.id]);
+            while (queue.length){
+                const curr = queue.shift();
+                activeNodes.add(curr);
+                const inEdges = allEdges.filter(edge => edge.target === curr && candidateEdges.has(edge.id));
+                for (const inEdge of inEdges) { if (!visited.has(inEdge.source)) { queue.push(inEdge.source); visited.add(inEdge.source); } activeEdges.add(inEdge.id); }
+            }
+            return {activeNodes, activeEdges};
+        }
+
+        function getAnimationPoint(node) {
+            const scale = 1.18;
+            const sourceCenterX = 530;
+            const sourceCenterY = 350;
+            const targetCenterX = 640;
+            const targetCenterY = 440;
+            return {
+                x: targetCenterX + (node.x - sourceCenterX) * scale,
+                y: targetCenterY + (node.y - sourceCenterY) * scale
+            };
+        }
+
+        //отрисовка конкретного шага
+        function drawAnimatedTreeForRun(step, canvasId = "animationCanvas", runs = simulationRuns, probs = fixedProbs, lowerBounds = fixedLowerBounds) {
+            const canvas = document.getElementById(canvasId);
+            if (!canvas) return;
+            canvas.width = 1280; canvas.height = 900;
+            const ctx = canvas.getContext("2d");
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = "#ffffff";
+            ctx.fillRect(0,0,canvas.width,canvas.height);
+            const { activeNodes, activeEdges } = getActiveNodesForRun(step, runs);
+            for (const edge of allEdges) {
+                if (!activeEdges.has(edge.id)) continue;
+                const src = nodeMap.get(edge.source), tgt = nodeMap.get(edge.target);
+                if(!src || !tgt) continue;
+                const srcPoint = getAnimationPoint(src);
+                const tgtPoint = getAnimationPoint(tgt);
+                const isFromLogic = src.type === "AND" || src.type === "OR";
+                drawLine(ctx, srcPoint.x, srcPoint.y, tgtPoint.x, tgtPoint.y, isFromLogic ? "#d97706" : "#3b82f6", isFromLogic ? 2.5 : 2);
+                if (edge.prob !== null && step > 0 && runs[step-1]) {
+                    const generatedValue = runs[step-1].generatedValues[edge.id];
+                    if (generatedValue !== undefined) {
+                        drawEdgeLabel(ctx, srcPoint.x, srcPoint.y, tgtPoint.x, tgtPoint.y, Number(generatedValue).toFixed(4));
+                    }
+                }
+            }
+            for (const node of allNodes) {
+                if (!activeNodes.has(node.id)) continue;
+                const point = getAnimationPoint(node);
+                if (node.type === "OR" || node.type === "AND") drawLogicNode(ctx, point.x, point.y, node.label, node.type);
+                else drawEventNode(ctx, point.x, point.y, node.label, node.label === "R");
+            }
+        }
+
+        function startAnimationTab(state) {
+            if (!state) return;
+            if (state.interval) stopAnimationTab(state);
+            const maxStep = state.runs.length;
+            if (maxStep === 0) return;
+
+            state.isPlaying = true;
+            const playBtn = document.getElementById(`playPauseAnimBtn_${state.id}`);
+            if (playBtn) playBtn.textContent = "⏸";
+
+            state.interval = setInterval(() => {
+                let nextStep = state.currentStep + 1;
+                if (nextStep > maxStep) { nextStep = 0; }
+                state.currentStep = nextStep;
+                renderAnimationControls(state);
+            }, state.speedMs);
+        }
+
+        function renderAnimationControls(state) {
+            if(!state || !state.tabDiv) return;
+            const maxStep = state.runs.length;
+            state.tabDiv.innerHTML = `
+                <div class="animation-controls">
+                    <button id="animPrevBtn_${state.id}" class="outline">◀ Назад</button>
+                    <div class="step-indicator">${state.currentStep} / ${maxStep}</div>
+                    <button id="animNextBtn_${state.id}" class="outline">Вперед ▶</button>
+                    <select id="speedSelect_${state.id}" class="speed-select">
+                        <option value="250">0.25 сек</option>
+                        <option value="500">0.5 сек</option>
+                        <option value="1000">1 сек</option>
+                        <option value="2000">2 сек</option>
+                        <option value="3000">3 сек</option>
+                        <option value="5000">5 сек</option>
+                    </select>
+                    <button id="playPauseAnimBtn_${state.id}" class="play-pause-btn">${state.isPlaying ? "⏸" : "▶"}</button>
+                </div>
+                <div id="canvas-container"><canvas id="animationCanvas_${state.id}" width="1280" height="900"></canvas></div>
+            `;
+            drawAnimatedTreeForRun(state.currentStep, `animationCanvas_${state.id}`, state.runs, state.probs, state.lowerBounds);
+            const prevBtn = document.getElementById(`animPrevBtn_${state.id}`);
+            const nextBtn = document.getElementById(`animNextBtn_${state.id}`);
+            const playPauseBtn = document.getElementById(`playPauseAnimBtn_${state.id}`);
+            const speedSelect = document.getElementById(`speedSelect_${state.id}`);
+
+            if (prevBtn) prevBtn.addEventListener("click", () => { state.currentStep = state.currentStep > 0 ? state.currentStep - 1 : maxStep; stopAnimationTab(state); renderAnimationControls(state); });
+            if (nextBtn) nextBtn.addEventListener("click", () => { state.currentStep = state.currentStep < maxStep ? state.currentStep + 1 : 0; stopAnimationTab(state); renderAnimationControls(state); });
+            if (playPauseBtn) playPauseBtn.addEventListener("click", () => { if (state.isPlaying) { stopAnimationTab(state); renderAnimationControls(state); } else { startAnimationTab(state); renderAnimationControls(state); } });
+            if (speedSelect) {
+                speedSelect.value = state.speedMs;
+                speedSelect.addEventListener("change", (e) => {
+                    state.speedMs = parseInt(e.target.value, 10);
+                    if (state.isPlaying) { stopAnimationTab(state); startAnimationTab(state); }
+                });
+            }
+        }
+
+        function activateTab(btn, tabDiv, onActivate) {
+            document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+            document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+            btn.classList.add("active");
+            tabDiv.classList.add("active");
+            if (onActivate) onActivate();
+        }
+
+        function createAnimationTab() {
+            if(simulationRuns.length === 0){ showNotification("Нет розыгрышей. Сначала запустите N розыгрышей.", false); return; }
+
+            animationTabCounter += 1;
+            const tabNumber = animationTabCounter;
+            const id = `animation_${tabNumber}`;
+
+            const btn = document.createElement("button");
+            btn.type = "button";
+            btn.className = "tab-btn";
+            btn.id = `animationTabBtn_${tabNumber}`;
+            btn.textContent = `Пошаговое отображение ${tabNumber}`;
+
+            const clearBtn = document.createElement("button");
+            clearBtn.className = "clear-results-btn";
+            clearBtn.textContent = "✕";
+
+            const tabDiv = document.createElement("div");
+            tabDiv.id = `animationTab_${tabNumber}`;
+            tabDiv.className = "tab";
+
+            const state = {
+                id,
+                number: tabNumber,
+                tabDiv,
+                currentStep: 0,
+                interval: null,
+                isPlaying: false,
+                speedMs: 1000,
+                runs: cloneSimulationRuns(),
+                probs: { ...fixedProbs },
+                lowerBounds: { ...fixedLowerBounds }
+            };
+            animationTabs.set(id, state);
+
+            clearBtn.onclick = () => {
+                stopAnimationTab(state);
+                animationTabs.delete(id);
+                btn.remove();
+                clearBtn.remove();
+                tabDiv.remove();
+                const first = document.querySelector(".tab-btn");
+                if(first) first.click();
+            };
+            btn.onclick = () => activateTab(btn, tabDiv, () => renderAnimationControls(state));
+
+            const docBtn = document.getElementById("documentationTabBtn");
+            const docTab = document.getElementById("tab3");
+            if (docBtn && docTab) {
+                tabsContainer.insertBefore(btn, docBtn);
+                tabsContainer.insertBefore(clearBtn, docBtn);
+                tabContentContainer.insertBefore(tabDiv, docTab);
+            } else {
+                tabsContainer.appendChild(btn);
+                tabsContainer.appendChild(clearBtn);
+                tabContentContainer.appendChild(tabDiv);
+            }
+
+            btn.click();
+        }
+        
+        //Построение дерева
+        function buildTree() { 
+            let resultTab = document.getElementById("tab2");
+
+            if(!resultTab){
+                let btn = document.createElement("button"); btn.type = "button"; btn.className = "tab-btn"; btn.id = "resultTabBtn"; btn.textContent = "Дерево Отказов";
+                resultTab = document.createElement("div"); resultTab.id = "tab2"; resultTab.className = "tab";
+                tabsContainer.appendChild(btn); tabContentContainer.appendChild(resultTab);
+                btn.onclick = () => { document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active")); document.querySelectorAll(".tab").forEach(t => t.classList.remove("active")); btn.classList.add("active"); resultTab.classList.add("active"); };
+            }
+
+            resultTab.innerHTML = '<div id="canvas-container"><canvas id="graphCanvas" width="1040" height="680"></canvas></div>';
+            drawFullTreeStatic();
+        }
+        
+        function showNotification(msg, ok) { 
+            const d = document.createElement("div"); d.className = "notification-overlay"; d.innerHTML = `<div class="notification ${ok ? 'success' : 'error'}"><div>${msg}</div><button class="primary" style="margin-top: 12px;">OK</button></div>`; d.querySelector("button").onclick = () => d.remove(); document.body.appendChild(d); setTimeout(() => { if(document.body.contains(d)) d.remove(); }, 2500);
+        }
+        
+
+        // Документация по названиям узлов графа
+        const documentationRows = [
+            {
+                        "code": "B1",
+                        "name": "Неблагоприятные метеоусловия на маршруте",
+                        "formula": "-",
+                        "category": "Базовые события B"
+            },
+            {
+                        "code": "B2",
+                        "name": "Потеря или деградация навигационного сигнала",
+                        "formula": "-",
+                        "category": "Базовые события B"
+            },
+            {
+                        "code": "B3",
+                        "name": "Сбой связи экипажа с диспетчером",
+                        "formula": "-",
+                        "category": "Базовые события B"
+            },
+            {
+                        "code": "B4",
+                        "name": "Ограничение пропускной способности воздушного пространства",
+                        "formula": "-",
+                        "category": "Базовые события B"
+            },
+            {
+                        "code": "B5",
+                        "name": "Ошибка планирования полётного задания",
+                        "formula": "-",
+                        "category": "Базовые события B"
+            },
+            {
+                        "code": "B6",
+                        "name": "Недостаточный контроль готовности экипажа",
+                        "formula": "-",
+                        "category": "Базовые события B"
+            },
+            {
+                        "code": "B7",
+                        "name": "Некорректные данные о техническом состоянии ВС",
+                        "formula": "-",
+                        "category": "Базовые события B"
+            },
+            {
+                        "code": "B8",
+                        "name": "Несвоевременное подтверждение допуска ВС к рейсу",
+                        "formula": "-",
+                        "category": "Базовые события B"
+            },
+            {
+                        "code": "B9",
+                        "name": "Сбой наземного обслуживания перед вылетом",
+                        "formula": "-",
+                        "category": "Базовые события B"
+            },
+            {
+                        "code": "B10",
+                        "name": "Нарушение графика подготовки рейса",
+                        "formula": "-",
+                        "category": "Базовые события B"
+            },
+            {
+                        "code": "B11",
+                        "name": "Отказ бортового оборудования мониторинга",
+                        "formula": "-",
+                        "category": "Базовые события B"
+            },
+            {
+                        "code": "B12",
+                        "name": "Недостоверные данные телеметрии",
+                        "formula": "-",
+                        "category": "Базовые события B"
+            },
+            {
+                        "code": "B13",
+                        "name": "Сбой резервного канала передачи данных",
+                        "formula": "-",
+                        "category": "Базовые события B"
+            },
+            {
+                        "code": "B14",
+                        "name": "Ошибка синхронизации данных между системами",
+                        "formula": "-",
+                        "category": "Базовые события B"
+            },
+            {
+                        "code": "B15",
+                        "name": "Отказ системы предупреждения столкновений",
+                        "formula": "-",
+                        "category": "Базовые события B"
+            },
+            {
+                        "code": "B16",
+                        "name": "Недостаточная точность позиционирования ВС",
+                        "formula": "-",
+                        "category": "Базовые события B"
+            },
+            {
+                        "code": "B17",
+                        "name": "Нарушение обмена данными с наземными службами",
+                        "formula": "-",
+                        "category": "Базовые события B"
+            },
+            {
+                        "code": "B18",
+                        "name": "Ошибка обработки предупреждений безопасности",
+                        "formula": "-",
+                        "category": "Базовые события B"
+            },
+            {
+                        "code": "B19",
+                        "name": "Нарушение регламента диспетчерского сопровождения",
+                        "formula": "-",
+                        "category": "Базовые события B"
+            },
+            {
+                        "code": "B20",
+                        "name": "Перегрузка диспетчера информационными сообщениями",
+                        "formula": "-",
+                        "category": "Базовые события B"
+            },
+            {
+                        "code": "B21",
+                        "name": "Сбой внешней интеграции мониторинга",
+                        "formula": "-",
+                        "category": "Базовые события B"
+            },
+            {
+                        "code": "B22",
+                        "name": "Задержка поступления оперативных ограничений",
+                        "formula": "-",
+                        "category": "Базовые события B"
+            },
+            {
+                        "code": "B23",
+                        "name": "Недостаточная подготовка персонала ТОиР",
+                        "formula": "-",
+                        "category": "Базовые события B"
+            },
+            {
+                        "code": "B24",
+                        "name": "Ошибка диагностики технического состояния",
+                        "formula": "-",
+                        "category": "Базовые события B"
+            },
+            {
+                        "code": "B25",
+                        "name": "Недостаточный запас критических комплектующих",
+                        "formula": "-",
+                        "category": "Базовые события B"
+            },
+            {
+                        "code": "B26",
+                        "name": "Нарушение сроков регламентного обслуживания",
+                        "formula": "-",
+                        "category": "Базовые события B"
+            },
+            {
+                        "code": "B27",
+                        "name": "Неполное выполнение чек-листа обслуживания",
+                        "formula": "-",
+                        "category": "Базовые события B"
+            },
+            {
+                        "code": "B28",
+                        "name": "Отказ инструмента контроля качества работ",
+                        "formula": "-",
+                        "category": "Базовые события B"
+            },
+            {
+                        "code": "B29",
+                        "name": "Отсутствие независимой проверки ТО",
+                        "formula": "-",
+                        "category": "Базовые события B"
+            },
+            {
+                        "code": "B30",
+                        "name": "Дефект двигателя или силовой установки",
+                        "formula": "-",
+                        "category": "Базовые события B"
+            },
+            {
+                        "code": "B31",
+                        "name": "Сбой топливной системы",
+                        "formula": "-",
+                        "category": "Базовые события B"
+            },
+            {
+                        "code": "B32",
+                        "name": "Перегрев или вибрация агрегатов",
+                        "formula": "-",
+                        "category": "Базовые события B"
+            },
+            {
+                        "code": "B33",
+                        "name": "Ошибка загрузки или центровки ВС",
+                        "formula": "-",
+                        "category": "Базовые события B"
+            },
+            {
+                        "code": "B34",
+                        "name": "Недостоверные данные о массе и балансе",
+                        "formula": "-",
+                        "category": "Базовые события B"
+            },
+            {
+                        "code": "B35",
+                        "name": "Нарушение контроля опасных грузов",
+                        "formula": "-",
+                        "category": "Базовые события B"
+            },
+            {
+                        "code": "B36",
+                        "name": "Сбой процедуры досмотра пассажиров/багажа",
+                        "formula": "-",
+                        "category": "Базовые события B"
+            },
+            {
+                        "code": "B37",
+                        "name": "Недостаточный контроль доступа в стерильную зону",
+                        "formula": "-",
+                        "category": "Базовые события B"
+            },
+            {
+                        "code": "B38",
+                        "name": "Отказ оборудования досмотра",
+                        "formula": "-",
+                        "category": "Базовые события B"
+            },
+            {
+                        "code": "B39",
+                        "name": "Ошибка оператора службы безопасности",
+                        "formula": "-",
+                        "category": "Базовые события B"
+            },
+            {
+                        "code": "B40",
+                        "name": "Нарушение процедуры посадки пассажиров",
+                        "formula": "-",
+                        "category": "Базовые события B"
+            },
+            {
+                        "code": "B41",
+                        "name": "Ошибка идентификации пассажира или багажа",
+                        "formula": "-",
+                        "category": "Базовые события B"
+            },
+            {
+                        "code": "B42",
+                        "name": "Конфликт расписания и ресурсов аэропорта",
+                        "formula": "-",
+                        "category": "Базовые события B"
+            },
+            {
+                        "code": "B43",
+                        "name": "Недостаточная обученность экипажа действиям при отказе",
+                        "formula": "-",
+                        "category": "Базовые события B"
+            },
+            {
+                        "code": "B44",
+                        "name": "Ошибка принятия решения экипажем",
+                        "formula": "-",
+                        "category": "Базовые события B"
+            },
+            {
+                        "code": "B45",
+                        "name": "Нарушение режима труда и отдыха экипажа",
+                        "formula": "-",
+                        "category": "Базовые события B"
+            },
+            {
+                        "code": "B46",
+                        "name": "Снижение ситуационной осведомлённости экипажа",
+                        "formula": "-",
+                        "category": "Базовые события B"
+            },
+            {
+                        "code": "B47",
+                        "name": "Сбой алгоритма прогнозирования риска",
+                        "formula": "-",
+                        "category": "Базовые события B"
+            },
+            {
+                        "code": "B48",
+                        "name": "Неполные входные данные модели системной динамики",
+                        "formula": "-",
+                        "category": "Базовые события B"
+            },
+            {
+                        "code": "B49",
+                        "name": "Некорректная калибровка параметров модели",
+                        "formula": "-",
+                        "category": "Базовые события B"
+            },
+            {
+                        "code": "B50",
+                        "name": "Отказ модуля расчёта показателей безопасности",
+                        "formula": "-",
+                        "category": "Базовые события B"
+            },
+            {
+                        "code": "B51",
+                        "name": "Ошибка агрегации вероятностных оценок",
+                        "formula": "-",
+                        "category": "Базовые события B"
+            },
+            {
+                        "code": "B52",
+                        "name": "Потеря актуальности исторических данных",
+                        "formula": "-",
+                        "category": "Базовые события B"
+            },
+            {
+                        "code": "B53",
+                        "name": "Недостаточная репрезентативность выборки",
+                        "formula": "-",
+                        "category": "Базовые события B"
+            },
+            {
+                        "code": "B54",
+                        "name": "Задержка формирования управленческого решения",
+                        "formula": "-",
+                        "category": "Базовые события B"
+            },
+            {
+                        "code": "B55",
+                        "name": "Недостаточная реакция на предупреждение системы",
+                        "formula": "-",
+                        "category": "Базовые события B"
+            },
+            {
+                        "code": "B56",
+                        "name": "Ошибка при выборе компенсирующего мероприятия",
+                        "formula": "-",
+                        "category": "Базовые события B"
+            },
+            {
+                        "code": "B57",
+                        "name": "Недостаточная устойчивость организационных процедур",
+                        "formula": "-",
+                        "category": "Базовые события B"
+            },
+            {
+                        "code": "B58",
+                        "name": "Слабая обратная связь после инцидентов",
+                        "formula": "-",
+                        "category": "Базовые события B"
+            },
+            {
+                        "code": "B59",
+                        "name": "Неполное расследование предпосылок к отказу",
+                        "formula": "-",
+                        "category": "Базовые события B"
+            },
+            {
+                        "code": "B60",
+                        "name": "Несвоевременное обновление регламентов безопасности",
+                        "formula": "-",
+                        "category": "Базовые события B"
+            },
+            {
+                        "code": "F1",
+                        "name": "Нарушение условий безопасного выполнения маршрута",
+                        "formula": "B1 1 B2 1 B3 1 B4",
+                        "category": "Функциональные подсистемы F"
+            },
+            {
+                        "code": "F2",
+                        "name": "Недостаточная готовность рейса к выполнению",
+                        "formula": "B5 1 B6 1 S1",
+                        "category": "Функциональные подсистемы F"
+            },
+            {
+                        "code": "F3",
+                        "name": "Сбой подготовки и наземного обеспечения вылета",
+                        "formula": "B9 1 B10",
+                        "category": "Функциональные подсистемы F"
+            },
+            {
+                        "code": "F4",
+                        "name": "Недостоверность бортового и телеметрического контроля",
+                        "formula": "B11 1 B12 1 S2",
+                        "category": "Функциональные подсистемы F"
+            },
+            {
+                        "code": "F5",
+                        "name": "Недостаточность предупреждения опасного сближения",
+                        "formula": "B15 1 B16 1 B17 1 B18",
+                        "category": "Функциональные подсистемы F"
+            },
+            {
+                        "code": "F6",
+                        "name": "Деградация диспетчерского и внешнего мониторинга",
+                        "formula": "B19 1 B20 1 S3",
+                        "category": "Функциональные подсистемы F"
+            },
+            {
+                        "code": "F7",
+                        "name": "Недостаточная готовность технического персонала и ресурсов",
+                        "formula": "B23 1 B24 1 B25",
+                        "category": "Функциональные подсистемы F"
+            },
+            {
+                        "code": "F8",
+                        "name": "Нарушение процесса технического обслуживания",
+                        "formula": "B26 1 B27 1 S4",
+                        "category": "Функциональные подсистемы F"
+            },
+            {
+                        "code": "F9",
+                        "name": "Техническая неисправность критических агрегатов ВС",
+                        "formula": "B30 1 B31 1 B32",
+                        "category": "Функциональные подсистемы F"
+            },
+            {
+                        "code": "F10",
+                        "name": "Нарушение загрузки и эксплуатационных ограничений ВС",
+                        "formula": "B33 1 B34 1 B35",
+                        "category": "Функциональные подсистемы F"
+            },
+            {
+                        "code": "F11",
+                        "name": "Снижение эффективности авиационной безопасности аэропорта",
+                        "formula": "B36 1 B37 1 S5",
+                        "category": "Функциональные подсистемы F"
+            },
+            {
+                        "code": "F12",
+                        "name": "Сбой пассажирских, багажных и ресурсных процедур",
+                        "formula": "B40 1 B41 1 B42",
+                        "category": "Функциональные подсистемы F"
+            },
+            {
+                        "code": "F13",
+                        "name": "Ошибки экипажа при управлении нештатной ситуацией",
+                        "formula": "B43 1 B44 1 S6",
+                        "category": "Функциональные подсистемы F"
+            },
+            {
+                        "code": "F14",
+                        "name": "Снижение достоверности прогностической модели риска",
+                        "formula": "B47 1 B48 1 B49",
+                        "category": "Функциональные подсистемы F"
+            },
+            {
+                        "code": "F15",
+                        "name": "Сбой расчёта и агрегации показателей безопасности",
+                        "formula": "B50 1 B51 1 S7",
+                        "category": "Функциональные подсистемы F"
+            },
+            {
+                        "code": "F16",
+                        "name": "Недостаточная реакция управления на прогноз риска",
+                        "formula": "B54 1 B55 1 B56",
+                        "category": "Функциональные подсистемы F"
+            },
+            {
+                        "code": "F17",
+                        "name": "Недостаточная устойчивость системы управления безопасностью",
+                        "formula": "B57 1 B58 1 B59 1 B60",
+                        "category": "Функциональные подсистемы F"
+            },
+            {
+                        "code": "G1",
+                        "name": "Операционные угрозы маршрута и подготовки рейса",
+                        "formula": "F1 1 F2 1 F3",
+                        "category": "Группы угроз G"
+            },
+            {
+                        "code": "G2",
+                        "name": "Информационно-диспетчерские угрозы безопасности",
+                        "formula": "F4 1 F5 1 F6",
+                        "category": "Группы угроз G"
+            },
+            {
+                        "code": "G3",
+                        "name": "Технические угрозы исправности воздушного судна",
+                        "formula": "F7 1 F8 1 F9",
+                        "category": "Группы угроз G"
+            },
+            {
+                        "code": "G4",
+                        "name": "Аэропортовые и процедурные угрозы безопасности",
+                        "formula": "F10 1 F11 1 F12",
+                        "category": "Группы угроз G"
+            },
+            {
+                        "code": "G5",
+                        "name": "Организационно-модельные угрозы прогнозирования безопасности",
+                        "formula": "F13 1 F14 1 F15 1 F16 1 F17",
+                        "category": "Группы угроз G"
+            },
+            {
+                        "code": "R",
+                        "name": "Итоговое небезопасное состояние авиационной транспортной системы",
+                        "formula": "G1 1 G2 1 G3 1 G4 1 G5",
+                        "category": "Итоговое событие R"
+            },
+            {
+                        "code": "S1",
+                        "name": "Совместный отказ контроля готовности ВС",
+                        "formula": "B7 & B8",
+                        "category": "Составные события S"
+            },
+            {
+                        "code": "S2",
+                        "name": "Совместный отказ резервирования информационных каналов",
+                        "formula": "B13 & B14",
+                        "category": "Составные события S"
+            },
+            {
+                        "code": "S3",
+                        "name": "Совместный отказ получения внешних оперативных ограничений",
+                        "formula": "B21 & B22",
+                        "category": "Составные события S"
+            },
+            {
+                        "code": "S4",
+                        "name": "Совместный отказ контроля качества ТО",
+                        "formula": "B28 & B29",
+                        "category": "Составные события S"
+            },
+            {
+                        "code": "S5",
+                        "name": "Совместный отказ процедур авиационной безопасности",
+                        "formula": "B38 & B39",
+                        "category": "Составные события S"
+            },
+            {
+                        "code": "S6",
+                        "name": "Совместное ухудшение человеческого фактора экипажа",
+                        "formula": "B45 & B46",
+                        "category": "Составные события S"
+            },
+            {
+                        "code": "S7",
+                        "name": "Совместное ухудшение качества исходных данных",
+                        "formula": "B52 & B53",
+                        "category": "Составные события S"
+            }
+];
+
+        function renderDocumentationTab() {
+            let docTab = document.getElementById("tab3");
+
+            if(!docTab){
+                let btn = document.createElement("button");
+                btn.type = "button";
+                btn.className = "tab-btn";
+                btn.id = "documentationTabBtn";
+                btn.textContent = "Документация";
+                docTab = document.createElement("div");
+                docTab.id = "tab3";
+                docTab.className = "tab";
+                tabsContainer.appendChild(btn);
+                tabContentContainer.appendChild(docTab);
+                btn.onclick = () => {
+                    document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+                    document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+                    btn.classList.add("active");
+                    docTab.classList.add("active");
+                };
+            }
+
+            const tbody = documentationRows.map(row => `
+                <tr>
+                    <td>${row.code}</td>
+                    <td>${row.name}</td>
+                    <td>${row.category}</td>
+                    <td>${row.formula}</td>
+                </tr>
+            `).join("");
+
+            docTab.innerHTML = `
+                <div class="docs-panel">
+                    <div class="docs-intro">
+                        <strong>Документация к графовой модели FTA</strong><br>
+                        В таблице указаны расшифровки обозначений узлов дерева отказов для темы
+                        «Прогнозирование характеристик безопасности функционирования авиационных транспортных систем
+                        на основе моделей системной динамики».
+                        <div class="docs-legend">
+                            <span class="docs-badge">& = И</span>
+                            <span class="docs-badge">1 = ИЛИ</span>
+                            <span class="docs-badge">B = базовое событие</span>
+                            <span class="docs-badge">S/F/G/R = промежуточные и итоговые события</span>
+                        </div>
+                    </div>
+                    <div class="docs-table-container">
+                        <table class="docs-table">
+                            <thead>
+                                <tr>
+                                    <th>Код</th>
+                                    <th>Название графа / события</th>
+                                    <th>Раздел</th>
+                                    <th>Формула входов</th>
+                                </tr>
+                            </thead>
+                            <tbody>${tbody}</tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+        }
+
+        //настройки жлементов
+        const tabsContainer = document.getElementById("tabs");
+        const tabContentContainer = document.getElementById("tabContent");
+        const historyTabDiv = document.createElement("div"); historyTabDiv.id = "tab1"; historyTabDiv.className = "tab active";
+        const histBtn = document.createElement("button"); histBtn.type = "button"; histBtn.className = "tab-btn active"; histBtn.textContent = "Таблица розыгрышей";
+
+        histBtn.onclick = () => { document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active")); document.querySelectorAll(".tab").forEach(t => t.classList.remove("active")); histBtn.classList.add("active"); historyTabDiv.classList.add("active"); };
+        tabsContainer.appendChild(histBtn); tabContentContainer.appendChild(historyTabDiv);
+        renderHistoryTableNew();
+        buildTree();
+        renderDocumentationTab();
+    </script>
+</body>
+</html>
