@@ -1,0 +1,8 @@
+{
+  "scripts": {
+    "start": "npx serve graph -l 10000"
+  },
+  "dependencies": {
+    "serve": "^14.2.4"
+  }
+}
